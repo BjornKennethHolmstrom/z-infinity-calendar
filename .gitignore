@@ -1,0 +1,39 @@
+# Ignore calendar-proxy specific files and directories
+calendar-proxy/package.json
+calendar-proxy/package-lock.json
+calendar-proxy/node_modules/
+
+# Ignore general Node.js related files and directories
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Ignore environment files that might contain sensitive information
+.env
+.env.local
+.env.*.local
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Ignore editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore build output
+/dist
+/build
+
+# Ignore log files
+*.log
+
+# Ignore temporary files
+*.tmp
+*.temp
+
+# Ignore calendar files
+*.ics

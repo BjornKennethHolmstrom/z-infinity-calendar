@@ -791,6 +791,74 @@ class ZInfinityCalendar {
     // Display events for this day (implementation needed)
   }
 
+  drawHourView() {
+    // Clear the canvas
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    const outerRadius = Math.min(centerX, centerY) - 10;
+    const innerRadius = outerRadius * this.innerRadiusRatio;
+
+    // Draw 60 segments for minutes
+    for (let i = 0; i < 60; i++) {
+      const startAngle = (i / 60) * 2 * Math.PI - Math.PI / 2;
+      const endAngle = ((i + 1) / 60) * 2 * Math.PI - Math.PI / 2;
+
+      this.ctx.fillStyle = this.colors.segment;
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
+      this.ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
+      this.ctx.closePath();
+      this.ctx.fill();
+
+      this.ctx.strokeStyle = this.colors.border;
+      this.ctx.stroke();
+
+      // Add minute labels for every 5 minutes
+      if (i % 5 === 0) {
+        const labelRadius = (outerRadius + innerRadius) / 2;
+        const labelAngle = (startAngle + endAngle) / 2;
+        const labelX = centerX + labelRadius * Math.cos(labelAngle);
+        const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+        this.ctx.fillStyle = this.colors.text;
+        this.ctx.font = '12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(`${i}`, labelX, labelY);
+      }
+    }
+
+    // Calculate the correct date and hour
+    let currentDate;
+    if (this.currentSegment.month !== undefined && this.selectedDayInMonth !== null) {
+      // Coming from month view
+      currentDate = new Date(this.year, this.currentSegment.month, this.selectedDayInMonth + 1);
+    } else if (this.currentSegment.week !== undefined && this.currentSegment.day !== undefined) {
+      // Coming from week view
+      const jan1 = new Date(this.year, 0, 1);
+      const daysSinceJan1 = this.currentSegment.week * 7 + this.currentSegment.day;
+      currentDate = new Date(jan1);
+      currentDate.setDate(jan1.getDate() + daysSinceJan1);
+    } else {
+      console.error('Invalid current segment:', this.currentSegment);
+      return;
+    }
+
+    currentDate.setHours(this.currentSegment.hour, 0, 0, 0);
+
+    // Add hour and date in the center
+    this.ctx.fillStyle = this.colors.text;
+    this.ctx.font = '20px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(`${currentDate.toDateString()} ${this.currentSegment.hour}:00`, centerX, centerY);
+
+    // Display events for this hour (implementation needed)
+    // this.displayHourEvents(this.currentSegment.hour);
+  }
+
 }
 
 // Usage

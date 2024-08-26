@@ -23,6 +23,13 @@ class ZInfinityCalendar {
     this.innerRadiusRatio = 0.6;
     this.selectedDayInWeek = null;
     this.selectedDayInMonth = null;
+
+    this.canvas.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
+    document.addEventListener('keydown', this.handleKeyDown.bind(this));
+    this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: true });
+    this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: true });
+    this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
+    this.touchStartDistance = 0;
   }
 
   drawYearView() {
@@ -77,6 +84,120 @@ class ZInfinityCalendar {
     this.displayEvents();
   }
 
+  handleWheel(event) {
+    event.preventDefault();
+    const rect = this.canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    if (event.deltaY < 0) {
+      // Scroll up - zoom in
+      this.zoomInToPosition(x, y);
+    } else {
+      // Scroll down - zoom out
+      this.zoomOut();
+    }
+  }
+
+  handleKeyDown(event) {
+    if (event.key === 'z') {
+      // Zoom in
+      const rect = this.canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      this.zoomInToPosition(x, y);
+    } else if (event.key === 'x') {
+      // Zoom out
+      this.zoomOut();
+    }
+  }
+
+  handleTouchStart(event) {
+    if (event.touches.length === 2) {
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      this.touchStartDistance = Math.hypot(
+        touch1.clientX - touch2.clientX,
+        touch1.clientY - touch2.clientY
+      );
+    }
+  }
+
+  handleTouchMove(event) {
+    if (event.touches.length === 2) {
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      const currentDistance = Math.hypot(
+        touch1.clientX - touch2.clientX,
+        touch1.clientY - touch2.clientY
+      );
+      
+      if (this.touchStartDistance && currentDistance) {
+        if (currentDistance > this.touchStartDistance * 1.1) {
+          // Zoom in
+          const centerX = (touch1.clientX + touch2.clientX) / 2;
+          const centerY = (touch1.clientY + touch2.clientY) / 2;
+          const rect = this.canvas.getBoundingClientRect();
+          this.zoomInToPosition(centerX - rect.left, centerY - rect.top);
+          this.touchStartDistance = currentDistance;
+        } else if (currentDistance < this.touchStartDistance * 0.9) {
+          // Zoom out
+          this.zoomOut();
+          this.touchStartDistance = currentDistance;
+        }
+      }
+    }
+  }
+
+  handleTouchEnd() {
+    this.touchStartDistance = 0;
+  }
+
+  zoomInToPosition(x, y) {
+    const segment = this.getSegmentFromPosition(x, y);
+    if (segment !== null) {
+      this.zoomIn(segment);
+    }
+  }
+
+  getSegmentFromPosition(x, y) {
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    const outerRadius = Math.min(centerX, centerY) - 10;
+    const innerRadius = outerRadius * this.innerRadiusRatio;
+
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance <= outerRadius && distance >= innerRadius) {
+      let angle = Math.atan2(dy, dx);
+      if (angle < 0) angle += 2 * Math.PI;
+      angle = (angle + Math.PI / 2) % (2 * Math.PI);
+
+      let totalSegments;
+      switch (this.currentView) {
+        case 'year':
+          totalSegments = 12;
+          break;
+        case 'month':
+          totalSegments = new Date(this.year, this.currentSegment.month + 1, 0).getDate();
+          break;
+        case 'week':
+          totalSegments = 7;
+          break;
+        case 'day':
+          totalSegments = 24;
+          break;
+        default:
+          return null;
+      }
+
+      return Math.floor((angle / (2 * Math.PI)) * totalSegments);
+    }
+
+    return null;
+  }
 
   getMonthName(monthIndex) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -163,7 +284,6 @@ class ZInfinityCalendar {
     const centerY = this.canvas.height / 2;
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
-
     const dx = x - centerX;
     const dy = y - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -174,23 +294,29 @@ class ZInfinityCalendar {
       angle = (angle + Math.PI / 2) % (2 * Math.PI);
 
       let segment;
+      let totalSegments;
+
       switch (this.currentView) {
         case 'year':
-          segment = Math.floor((angle / (2 * Math.PI)) * 12);
+          totalSegments = 12;
           break;
         case 'month':
-          segment = Math.floor((angle / (2 * Math.PI)) * 30);
+          totalSegments = new Date(this.year, this.currentSegment.month + 1, 0).getDate();
           break;
         case 'week':
-          segment = Math.floor((angle / (2 * Math.PI)) * 7);
+          totalSegments = 7;
           break;
         case 'day':
-          segment = Math.floor((angle / (2 * Math.PI)) * 24);
+          totalSegments = 24;
           break;
         case 'hour':
-          segment = Math.floor((angle / (2 * Math.PI)) * 60);
+          totalSegments = 60;
           break;
+        default:
+          return;
       }
+
+      segment = Math.floor((angle / (2 * Math.PI)) * totalSegments);
       this.zoomIn(segment);
     }
   }
@@ -210,16 +336,20 @@ class ZInfinityCalendar {
         case 'week':
           if (prevView === 'month') {
             const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
+            // Use the clicked date to determine the week
+            const startOfYear = new Date(this.year, 0, 1);
+            const weekNumber = Math.ceil((((clickedDate - startOfYear) / 86400000) + 1 + startOfYear.getDay()) / 7);
+            
             this.currentSegment = { 
               month: this.currentSegment.month,
-              week: Math.floor((segment + new Date(this.year, this.currentSegment.month, 1).getDay()) / 7)
+              week: weekNumber - 1  // Adjust to 0-based index
             };
             this.selectedDayInWeek = clickedDate.getDay();
             this.selectedDayInMonth = segment;
           } else {
             this.currentSegment = { 
               month: this.currentSegment.month,
-              week: Math.floor(segment / 7) 
+              week: segment
             };
           }
           break;
@@ -231,8 +361,8 @@ class ZInfinityCalendar {
               day: segment % 7 
             };
             this.selectedDayInWeek = segment % 7;
-          } else {
-            // Handling direct month to day transition if needed
+          } else if (prevView === 'month') {
+            const daysInMonth = new Date(this.year, this.currentSegment.month + 1, 0).getDate();
             const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
             this.currentSegment = {
               month: this.currentSegment.month,
@@ -470,10 +600,12 @@ class ZInfinityCalendar {
     }
 
     // Calculate the correct start date of the week
-    const jan1 = new Date(this.year, 0, 1);
-    const daysSinceJan1 = this.currentSegment.week * 7;
-    const startDate = new Date(jan1);
-    startDate.setDate(jan1.getDate() + daysSinceJan1 - jan1.getDay());
+    const startOfYear = new Date(this.year, 0, 1);
+    const daysToAdd = this.currentSegment.week * 7 + 1 - startOfYear.getDay();
+    const startDate = new Date(this.year, 0, daysToAdd);
+
+    // Adjust to the start of the week (Sunday)
+    startDate.setDate(startDate.getDate() - startDate.getDay());
 
     for (let i = 0; i < 7; i++) {
       const startAngle = (i / 7) * 2 * Math.PI - Math.PI / 2;
@@ -493,6 +625,13 @@ class ZInfinityCalendar {
       const labelAngle = (startAngle + endAngle) / 2;
       const labelX = centerX + labelRadius * Math.cos(labelAngle);
       const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+      // Highlight the selected day
+      if (i === this.selectedDayInWeek) {
+        this.ctx.fillStyle = this.colors.highlight;
+        // Redraw the segment with highlight color
+        this.ctx.fill();
+      }
 
       this.ctx.fillStyle = this.colors.text;
       this.ctx.font = '14px Arial';
@@ -533,13 +672,11 @@ class ZInfinityCalendar {
     // this.displayWeekEvents(startDate, endDate);
   }
 
-  // Add a helper method to calculate the week number
+  // Add this helper method to your class
   getWeekNumber(date) {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const weekNumber = Math.ceil((((date - startOfYear) / 86400000) + 1 + startOfYear.getDay()) / 7);
+    return weekNumber;
   }
 
   drawDayView() {
@@ -579,10 +716,20 @@ class ZInfinityCalendar {
     }
 
     // Calculate the correct date
-    const jan1 = new Date(this.year, 0, 1);
-    const daysSinceJan1 = this.currentSegment.week * 7 + this.currentSegment.day;
-    const currentDate = new Date(jan1);
-    currentDate.setDate(jan1.getDate() + daysSinceJan1 - jan1.getDay());
+    let currentDate;
+    if (this.currentSegment.month !== undefined && this.selectedDayInMonth !== null) {
+      // Coming from month view
+      currentDate = new Date(this.year, this.currentSegment.month, this.selectedDayInMonth + 1);
+    } else if (this.currentSegment.week !== undefined && this.currentSegment.day !== undefined) {
+      // Coming from week view
+      const jan1 = new Date(this.year, 0, 1);
+      const daysSinceJan1 = this.currentSegment.week * 7 + this.currentSegment.day;
+      currentDate = new Date(jan1);
+      currentDate.setDate(jan1.getDate() + daysSinceJan1);
+    } else {
+      console.error('Invalid current segment:', this.currentSegment);
+      return;
+    }
 
     // Add date in the center
     this.ctx.fillStyle = this.colors.text;
@@ -594,75 +741,12 @@ class ZInfinityCalendar {
     // Display events for this day (implementation needed)
   }
 
-  drawHourView(hourIndex) {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    const centerX = this.canvas.width / 2;
-    const centerY = this.canvas.height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 10;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
-    for (let i = 0; i < 60; i++) {
-      const startAngle = (i / 60) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((i + 1) / 60) * 2 * Math.PI - Math.PI / 2;
-
-      this.ctx.fillStyle = this.colors.segment;
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-      this.ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
-      this.ctx.closePath();
-      this.ctx.fill();
-
-      this.ctx.strokeStyle = this.colors.border;
-      this.ctx.stroke();
-
-      // Add minute labels for every 5 minutes
-      if (i % 5 === 0) {
-        const labelRadius = (outerRadius + innerRadius) / 2;
-        const labelAngle = (startAngle + endAngle) / 2;
-        const labelX = centerX + labelRadius * Math.cos(labelAngle);
-        const labelY = centerY + labelRadius * Math.sin(labelAngle);
-
-        this.ctx.fillStyle = this.colors.text;
-        this.ctx.font = '12px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(i.toString().padStart(2, '0'), labelX, labelY);
-      }
-    }
-
-    // Calculate the correct date
-    const startOfMonth = new Date(this.year, this.currentSegment.month, 1);
-    const currentDate = new Date(startOfMonth);
-    currentDate.setDate(startOfMonth.getDate() + this.currentSegment.week * 7 + this.currentSegment.day);
-    currentDate.setHours(this.currentSegment.hour);
-
-    const weekday = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
-    const formattedDate = currentDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    // Add weekday, date, and hour in the center
-    this.ctx.fillStyle = this.colors.text;
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    
-    this.ctx.font = '18px Arial';
-    this.ctx.fillText(weekday, centerX, centerY - 20);
-    
-    this.ctx.font = '16px Arial';
-    this.ctx.fillText(formattedDate, centerX, centerY);
-    
-    this.ctx.font = '24px Arial';
-    this.ctx.fillText(`${this.currentSegment.hour}:00`, centerX, centerY + 25);
-
-
-    // Display events for this hour (implementation needed)
-    this.displayHourEvents(hourIndex);
-  }
 }
 
 // Usage
 const calendar = new ZInfinityCalendar('calendarCanvas', 2024);
 calendar.drawYearView();
+
 
 document.getElementById('calendarCanvas').addEventListener('click', (event) => {
   const rect = event.target.getBoundingClientRect();

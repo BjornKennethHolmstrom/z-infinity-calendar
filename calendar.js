@@ -30,9 +30,14 @@ class ZInfinityCalendar {
     this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: true });
     this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
     this.touchStartDistance = 0;
+    this.mouseX = 0;
+    this.mouseY = 0;
     this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+    document.addEventListener('keydown', this.handleKeyDown.bind(this));
+    this.lastZoomTime = 0;
+    this.zoomDelay = 300; // 300 milliseconds delay between zoom actions
   }
-
+  
   drawYearView() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     const centerX = this.canvas.width / 2;
@@ -86,13 +91,14 @@ class ZInfinityCalendar {
   }
 
   handleMouseMove(event) {
-    if (this.currentView === 'week') {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouseX = event.clientX - rect.left;
+    this.mouseY = event.clientY - rect.top;
 
+    // Existing handleMouseMove logic for week view...
+    if (this.currentView === 'week') {
       for (let i = 0; i < 7; i++) {
-        if (this.ctx.isPointInPath(this.weekSegments[i], x, y)) {
+        if (this.ctx.isPointInPath(this.weekSegments[i], this.mouseX, this.mouseY)) {
           if (this.selectedDayInWeek !== i) {
             this.selectedDayInWeek = i;
             this.drawWeekView(); // Redraw to show the new highlight
@@ -109,25 +115,41 @@ class ZInfinityCalendar {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     
+    console.log('Wheel event:', { x, y, deltaY: event.deltaY });
+
     if (event.deltaY < 0) {
       // Scroll up - zoom in
+      console.log('Scrolling up - zooming in');
       this.zoomInToPosition(x, y);
     } else {
       // Scroll down - zoom out
+      console.log('Scrolling down - zooming out');
       this.zoomOut();
     }
   }
 
   handleKeyDown(event) {
+    console.log('Key pressed:', event.key);
+    const currentTime = new Date().getTime();
+
     if (event.key === 'z') {
       // Zoom in
-      const rect = this.canvas.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      this.zoomInToPosition(x, y);
+      if (currentTime - this.lastZoomTime > this.zoomDelay) {
+        console.log('Z key pressed - zooming in', { x: this.mouseX, y: this.mouseY });
+        this.zoomInToPosition(this.mouseX, this.mouseY);
+        this.lastZoomTime = currentTime;
+      } else {
+        console.log('Zoom action ignored due to debounce');
+      }
     } else if (event.key === 'x') {
       // Zoom out
-      this.zoomOut();
+      if (currentTime - this.lastZoomTime > this.zoomDelay) {
+        console.log('X key pressed - zooming out');
+        this.zoomOut();
+        this.lastZoomTime = currentTime;
+      } else {
+        console.log('Zoom action ignored due to debounce');
+      }
     }
   }
 
@@ -173,9 +195,13 @@ class ZInfinityCalendar {
   }
 
   zoomInToPosition(x, y) {
+    console.log('zoomInToPosition called', { x, y });
     const segment = this.getSegmentFromPosition(x, y);
+    console.log('Segment calculated:', segment);
     if (segment !== null) {
       this.zoomIn(segment);
+    } else {
+      console.log('No valid segment found for position');
     }
   }
 
@@ -188,6 +214,8 @@ class ZInfinityCalendar {
     const dx = x - centerX;
     const dy = y - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
+
+    console.log('getSegmentFromPosition', { x, y, distance, innerRadius, outerRadius });
 
     if (distance <= outerRadius && distance >= innerRadius) {
       let angle = Math.atan2(dy, dx);
@@ -212,9 +240,12 @@ class ZInfinityCalendar {
           return null;
       }
 
-      return Math.floor((angle / (2 * Math.PI)) * totalSegments);
+      const segment = Math.floor((angle / (2 * Math.PI)) * totalSegments);
+      console.log('Calculated segment', { angle, totalSegments, segment });
+      return segment;
     }
 
+    console.log('Click outside of the calendar ring');
     return null;
   }
 
@@ -341,31 +372,34 @@ class ZInfinityCalendar {
   }
 
   zoomIn(segment) {
-    const nextViewIndex = this.zoomLevels.indexOf(this.currentView) + 1;
-    if (nextViewIndex < this.zoomLevels.length) {
+    console.log('zoomIn called', { segment, currentView: this.currentView });
+    const currentViewIndex = this.zoomLevels.indexOf(this.currentView);
+    if (currentViewIndex < this.zoomLevels.length - 1) {
+      const nextView = this.zoomLevels[currentViewIndex + 1];
       const prevView = this.currentView;
-      this.currentView = this.zoomLevels[nextViewIndex];
+      this.currentView = nextView;
       
-      switch (this.currentView) {
+      console.log('Zooming from', prevView, 'to', nextView);
+
+      // Update currentSegment structure
+      switch (nextView) {
         case 'month':
-          this.currentSegment = { month: segment };
-          this.selectedDayInMonth = null;
+          if (prevView === 'year') {
+            this.currentSegment = { month: segment };
+          }
           break;
         case 'week':
-          if (prevView === 'month') {
-            const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
-            const weekNumber = this.getWeekNumber(clickedDate);
-            
+          if (prevView === 'year') {
+            const date = new Date(this.year, segment, 1);
             this.currentSegment = { 
-              month: this.currentSegment.month,
-              week: weekNumber - 1  // Adjust to 0-based index
+              month: segment,
+              week: this.getWeekNumber(date) - 1 // Adjust to 0-based index
             };
-            this.selectedDayInWeek = clickedDate.getDay();
-            this.selectedDayInMonth = segment;
-          } else {
+          } else if (prevView === 'month') {
+            const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
             this.currentSegment = { 
               month: this.currentSegment.month,
-              week: segment
+              week: this.getWeekNumber(clickedDate) - 1 // Adjust to 0-based index
             };
           }
           break;
@@ -375,12 +409,10 @@ class ZInfinityCalendar {
             const selectedDate = new Date(startOfWeek);
             selectedDate.setDate(startOfWeek.getDate() + segment);
             this.currentSegment = {
-              month: selectedDate.getMonth(),
-              week: this.currentSegment.week,
+              ...this.currentSegment,
               day: segment
             };
             this.selectedDayInWeek = segment;
-            this.selectedDayInMonth = selectedDate.getDate() - 1; // Adjust to 0-based index
           } else if (prevView === 'month') {
             const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
             this.currentSegment = {
@@ -388,19 +420,22 @@ class ZInfinityCalendar {
               week: this.getWeekNumber(clickedDate) - 1, // Adjust to 0-based index
               day: clickedDate.getDay()
             };
-            this.selectedDayInWeek = clickedDate.getDay();
-            this.selectedDayInMonth = segment;
           }
           break;
         case 'hour':
-          this.currentSegment = { 
-            ...this.currentSegment,
-            hour: segment 
-          };
+          if (prevView === 'day') {
+            this.currentSegment = { 
+              ...this.currentSegment,
+              hour: segment 
+            };
+          }
           break;
       }
 
+      console.log('Updated currentSegment', this.currentSegment);
       this.drawCurrentView();
+    } else {
+      console.log('Already at maximum zoom level');
     }
   }
 
@@ -876,10 +911,10 @@ document.getElementById('calendarCanvas').addEventListener('click', (event) => {
   calendar.handleClick(x, y);
 });
 
-document.addEventListener('keydown', (event) => calendar.handleKeyDown(event));
-
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     calendar.zoomOut();
+  } else {
+    calendar.handleKeyDown(event);
   }
 });

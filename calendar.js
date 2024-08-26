@@ -346,7 +346,6 @@ class ZInfinityCalendar {
       const prevView = this.currentView;
       this.currentView = this.zoomLevels[nextViewIndex];
       
-      // Update currentSegment structure
       switch (this.currentView) {
         case 'month':
           this.currentSegment = { month: segment };
@@ -355,9 +354,7 @@ class ZInfinityCalendar {
         case 'week':
           if (prevView === 'month') {
             const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
-            // Use the clicked date to determine the week
-            const startOfYear = new Date(this.year, 0, 1);
-            const weekNumber = Math.ceil((((clickedDate - startOfYear) / 86400000) + 1 + startOfYear.getDay()) / 7);
+            const weekNumber = this.getWeekNumber(clickedDate);
             
             this.currentSegment = { 
               month: this.currentSegment.month,
@@ -373,24 +370,22 @@ class ZInfinityCalendar {
           }
           break;
         case 'day':
-       case 'day':
           if (prevView === 'week') {
-            const startOfWeek = new Date(this.year, 0, 1 + (this.currentSegment.week * 7));
-            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Adjust to start of week
+            const startOfWeek = this.getStartOfWeek(this.year, this.currentSegment.week);
             const selectedDate = new Date(startOfWeek);
-            selectedDate.setDate(startOfWeek.getDate() + this.selectedDayInWeek);
+            selectedDate.setDate(startOfWeek.getDate() + segment);
             this.currentSegment = {
               month: selectedDate.getMonth(),
               week: this.currentSegment.week,
-              day: this.selectedDayInWeek
+              day: segment
             };
-            this.selectedDayInWeek = segment % 7;
+            this.selectedDayInWeek = segment;
+            this.selectedDayInMonth = selectedDate.getDate() - 1; // Adjust to 0-based index
           } else if (prevView === 'month') {
-            const daysInMonth = new Date(this.year, this.currentSegment.month + 1, 0).getDate();
             const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
             this.currentSegment = {
               month: this.currentSegment.month,
-              week: Math.floor((segment + new Date(this.year, this.currentSegment.month, 1).getDay()) / 7),
+              week: this.getWeekNumber(clickedDate) - 1, // Adjust to 0-based index
               day: clickedDate.getDay()
             };
             this.selectedDayInWeek = clickedDate.getDay();
@@ -399,9 +394,7 @@ class ZInfinityCalendar {
           break;
         case 'hour':
           this.currentSegment = { 
-            month: this.currentSegment.month,
-            week: this.currentSegment.week,
-            day: this.currentSegment.day,
+            ...this.currentSegment,
             hour: segment 
           };
           break;
@@ -418,46 +411,61 @@ class ZInfinityCalendar {
       const prevSegment = { ...this.currentSegment };  // Clone the current segment
       this.currentView = this.zoomLevels[prevViewIndex];
 
-      const startState = { zoom: 1 };
-      const endState = { zoom: 0 };
-
       // Update currentSegment based on the view we're zooming out to
       switch (this.currentView) {
         case 'year':
-          this.currentSegment = { month: this.currentSegment.month };
+          this.currentSegment = {};
           break;
         case 'month':
-          this.currentSegment = { month: this.currentSegment.month };
+          this.currentSegment = { month: prevSegment.month };
           break;
         case 'week':
-          this.currentSegment = { 
-            month: this.currentSegment.month,
-            week: Math.floor(this.currentSegment.day / 7)
-          };
+          if (prevView === 'day') {
+            // Maintain the current week when zooming out from day to week
+            this.currentSegment = {
+              month: prevSegment.month,
+              week: prevSegment.week
+            };
+          } else {
+            // Default case (should not typically occur)
+            const currentDate = new Date(this.year, prevSegment.month, 1);
+            this.currentSegment = {
+              month: prevSegment.month,
+              week: this.getWeekNumber(currentDate) - 1 // Adjust to 0-based index
+            };
+          }
           break;
         case 'day':
           this.currentSegment = {
-            month: this.currentSegment.month,
-            week: this.currentSegment.week,
-            day: this.currentSegment.day
+            month: prevSegment.month,
+            week: prevSegment.week,
+            day: prevSegment.day
           };
           break;
       }
 
-      this.animate(
-        (progress) => {
-          const currentState = {
-            zoom: startState.zoom + (endState.zoom - startState.zoom) * progress
-          };
-          this.drawTransition(prevView, this.currentView, prevSegment, this.currentSegment, 1 - currentState.zoom);
-        },
-        this.animationDuration,
-        () => {
-          console.log(`Zoomed out to ${this.currentView} view`, this.currentSegment);
-          this.drawCurrentView();
-        }
-      );
+      this.drawCurrentView();
     }
+  }
+
+  // Add these helper methods to your class
+  getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+  }
+
+  // Updated getStartOfWeek method
+  getStartOfWeek(year, week) {
+    // January 4th is always in week 1 (according to ISO 8601)
+    const jan4 = new Date(year, 0, 4);
+    // Get the Monday of week 1
+    const firstMonday = new Date(jan4.getTime() - ((jan4.getDay() + 6) % 7) * 86400000);
+    // Add the necessary number of weeks
+    const targetDate = new Date(firstMonday.getTime() + (week * 7) * 86400000);
+    return targetDate;
   }
 
   drawTransition(fromView, toView, fromSegment, toSegment, progress) {
@@ -637,18 +645,13 @@ class ZInfinityCalendar {
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
-    if (!this.currentSegment || typeof this.currentSegment.month === 'undefined' || typeof this.currentSegment.week === 'undefined') {
+    if (!this.currentSegment || typeof this.currentSegment.week === 'undefined') {
       console.error('Invalid currentSegment:', this.currentSegment);
       return;
     }
 
     // Calculate the correct start date of the week
-    const startOfYear = new Date(this.year, 0, 1);
-    const daysToAdd = this.currentSegment.week * 7 + 1 - startOfYear.getDay();
-    const startDate = new Date(this.year, 0, daysToAdd);
-
-    // Adjust to the start of the week (Sunday)
-    startDate.setDate(startDate.getDate() - startDate.getDay());
+    const startDate = this.getStartOfWeek(this.year, this.currentSegment.week);
 
     for (let i = 0; i < 7; i++) {
       const startAngle = (i / 7) * 2 * Math.PI - Math.PI / 2;
@@ -676,13 +679,6 @@ class ZInfinityCalendar {
       const labelX = centerX + labelRadius * Math.cos(labelAngle);
       const labelY = centerY + labelRadius * Math.sin(labelAngle);
 
-      // Highlight the selected day
-      if (i === this.selectedDayInWeek) {
-        this.ctx.fillStyle = this.colors.highlight;
-        // Redraw the segment with highlight color
-        this.ctx.fill();
-      }
-
       this.ctx.fillStyle = this.colors.text;
       this.ctx.font = '14px Arial';
       this.ctx.textAlign = 'center';
@@ -704,8 +700,14 @@ class ZInfinityCalendar {
     endDate.setDate(endDate.getDate() + 6);
 
     // Add week range in the center
-    const dateOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
-    const dateRangeText = `${startDate.toLocaleDateString('en-CA', dateOptions)} to ${endDate.toLocaleDateString('en-CA', dateOptions)}`;
+    const formatDate = (date) => {
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const dateRangeText = `${formatDate(startDate)} to ${formatDate(endDate)}`;
     
     this.ctx.fillStyle = this.colors.text;
     this.ctx.font = '16px Arial';
@@ -714,19 +716,12 @@ class ZInfinityCalendar {
     this.ctx.fillText(dateRangeText, centerX, centerY - 10);
 
     // Calculate and display the week number
-    const weekNumber = this.getWeekNumber(startDate);
+    const weekNumber = this.currentSegment.week + 1; // Convert back to 1-based index for display
     this.ctx.font = '14px Arial';
     this.ctx.fillText(`Week ${weekNumber}`, centerX, centerY + 15);
 
     // Display events for this week (implementation needed)
     // this.displayWeekEvents(startDate, endDate);
-  }
-
-  // Add this helper method to your class
-  getWeekNumber(date) {
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const weekNumber = Math.ceil((((date - startOfYear) / 86400000) + 1 + startOfYear.getDay()) / 7);
-    return weekNumber;
   }
 
   drawDayView() {
@@ -767,15 +762,15 @@ class ZInfinityCalendar {
 
     // Calculate the correct date
     let currentDate;
-    if (this.currentSegment.month !== undefined && this.selectedDayInMonth !== null) {
+    if (this.currentSegment.week !== undefined && this.selectedDayInWeek !== null) {
+      // Coming from week view
+      const startOfYear = new Date(this.year, 0, 1);
+      const daysToAdd = this.currentSegment.week * 7 + this.selectedDayInWeek;
+      currentDate = new Date(startOfYear);
+      currentDate.setDate(startOfYear.getDate() + daysToAdd);
+    } else if (this.currentSegment.month !== undefined && this.selectedDayInMonth !== null) {
       // Coming from month view
       currentDate = new Date(this.year, this.currentSegment.month, this.selectedDayInMonth + 1);
-    } else if (this.currentSegment.week !== undefined && this.currentSegment.day !== undefined) {
-      // Coming from week view
-      const jan1 = new Date(this.year, 0, 1);
-      const daysSinceJan1 = this.currentSegment.week * 7 + this.currentSegment.day;
-      currentDate = new Date(jan1);
-      currentDate.setDate(jan1.getDate() + daysSinceJan1);
     } else {
       console.error('Invalid current segment:', this.currentSegment);
       return;
@@ -832,15 +827,15 @@ class ZInfinityCalendar {
 
     // Calculate the correct date and hour
     let currentDate;
-    if (this.currentSegment.month !== undefined && this.selectedDayInMonth !== null) {
+    if (this.currentSegment.week !== undefined && this.selectedDayInWeek !== null) {
+      // Coming from week view
+      const startOfYear = new Date(this.year, 0, 1);
+      const daysToAdd = this.currentSegment.week * 7 + this.selectedDayInWeek;
+      currentDate = new Date(startOfYear);
+      currentDate.setDate(startOfYear.getDate() + daysToAdd);
+    } else if (this.currentSegment.month !== undefined && this.selectedDayInMonth !== null) {
       // Coming from month view
       currentDate = new Date(this.year, this.currentSegment.month, this.selectedDayInMonth + 1);
-    } else if (this.currentSegment.week !== undefined && this.currentSegment.day !== undefined) {
-      // Coming from week view
-      const jan1 = new Date(this.year, 0, 1);
-      const daysSinceJan1 = this.currentSegment.week * 7 + this.currentSegment.day;
-      currentDate = new Date(jan1);
-      currentDate.setDate(jan1.getDate() + daysSinceJan1);
     } else {
       console.error('Invalid current segment:', this.currentSegment);
       return;
@@ -859,6 +854,14 @@ class ZInfinityCalendar {
     // this.displayHourEvents(this.currentSegment.hour);
   }
 
+  // Add this method to help with debugging
+  logCurrentSegment() {
+    console.log('Current Segment:', JSON.stringify(this.currentSegment));
+    if (this.currentSegment && this.currentSegment.week !== undefined) {
+      const startDate = this.getStartOfWeek(this.year, this.currentSegment.week);
+      console.log('Start of Week:', startDate.toISOString());
+    }
+  }
 }
 
 // Usage

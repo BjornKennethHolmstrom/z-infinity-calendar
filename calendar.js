@@ -22,6 +22,7 @@ class ZInfinityCalendar {
     this.currentSegment = null;
     this.innerRadiusRatio = 0.6;
     this.selectedDayInWeek = null;
+    this.selectedDayInMonth = null;
   }
 
   drawYearView() {
@@ -204,20 +205,43 @@ class ZInfinityCalendar {
       switch (this.currentView) {
         case 'month':
           this.currentSegment = { month: segment };
+          this.selectedDayInMonth = null;
           break;
         case 'week':
-          this.currentSegment = { 
-            month: this.currentSegment.month,
-            week: Math.floor(segment / 7) 
-          };
+          if (prevView === 'month') {
+            const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
+            this.currentSegment = { 
+              month: this.currentSegment.month,
+              week: Math.floor((segment + new Date(this.year, this.currentSegment.month, 1).getDay()) / 7)
+            };
+            this.selectedDayInWeek = clickedDate.getDay();
+            this.selectedDayInMonth = segment;
+          } else {
+            this.currentSegment = { 
+              month: this.currentSegment.month,
+              week: Math.floor(segment / 7) 
+            };
+          }
           break;
         case 'day':
-          this.currentSegment = { 
-            month: this.currentSegment.month,
-            week: this.currentSegment.week,
-            day: segment % 7 
-          };
-          this.selectedDayInWeek = segment % 7; // Store the selected day
+          if (prevView === 'week') {
+            this.currentSegment = { 
+              month: this.currentSegment.month,
+              week: this.currentSegment.week,
+              day: segment % 7 
+            };
+            this.selectedDayInWeek = segment % 7;
+          } else {
+            // Handling direct month to day transition if needed
+            const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
+            this.currentSegment = {
+              month: this.currentSegment.month,
+              week: Math.floor((segment + new Date(this.year, this.currentSegment.month, 1).getDay()) / 7),
+              day: clickedDate.getDay()
+            };
+            this.selectedDayInWeek = clickedDate.getDay();
+            this.selectedDayInMonth = segment;
+          }
           break;
         case 'hour':
           this.currentSegment = { 
@@ -229,7 +253,6 @@ class ZInfinityCalendar {
           break;
       }
 
-      // Implement animation and drawing logic here
       this.drawCurrentView();
     }
   }
@@ -357,6 +380,7 @@ class ZInfinityCalendar {
       const startAngle = (i / daysInMonth) * 2 * Math.PI - Math.PI / 2;
       const endAngle = ((i + 1) / daysInMonth) * 2 * Math.PI - Math.PI / 2;
 
+      //this.ctx.fillStyle = (i === this.selectedDayInMonth) ? this.colors.highlight : this.colors.segment;
       this.ctx.fillStyle = this.colors.segment;
       this.ctx.beginPath();
       this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);

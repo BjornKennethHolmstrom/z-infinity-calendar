@@ -7,15 +7,14 @@ Z∞ (Z-Infinity) is an innovative, zoomable circular calendar implementation. I
 - Circular calendar visualization
 - Zoomable interface from year to hour view
 - Smooth animations between zoom levels
-- Integration with iCal data
 - Event display across all zoom levels
+- Keyboard and mouse controls for easy navigation
 
 ## Getting Started
 
 ### Prerequisites
 
 - Modern web browser
-- Node.js and npm (for running the calendar proxy server)
 
 ### Installation
 
@@ -24,29 +23,23 @@ Z∞ (Z-Infinity) is an innovative, zoomable circular calendar implementation. I
    git clone https://github.com/BjornKennethHolmstrom/z-infinity-calendar.git
    cd z-infinity-calendar
    ```
-
-2. Set up the calendar proxy server:
-   ```
-   cd calendar-proxy
-   npm install
-   ```
-
-3. Start the proxy server:
-   ```
-   node server.mjs
-   ```
-
-4. Open `index.html` in your web browser.
+2. Open `index.html` in your web browser.
 
 ## Usage
 
 - Click on a segment to zoom in (year → month → week → day → hour)
 - Press 'Esc' key to zoom out
-- Click the "Set Calendar URL" button to provide an iCal URL for event display
+- Use the 'z' key to zoom in and 'x' key to zoom out
+- Use the mouse wheel to zoom in and out
 
 ## Development
 
-The main calendar logic is contained in `calendar.js`. To modify or extend the calendar functionality, edit this file.
+The main calendar logic is contained in `ZInfinityCalendar.js` and `CalendarRenderer.js`. To modify or extend the calendar functionality, edit these files.
+
+## Future Enhancements
+
+- Event creation, editing and deletion
+- Improved touch controls for mobile devices
 
 ## License
 

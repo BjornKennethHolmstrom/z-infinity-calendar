@@ -12,21 +12,16 @@ class ZInfinityCalendar {
       segment: '#ffffff',
       border: '#000000',
       text: '#333333',
-      event: '#4285f4'
+      event: '#4285f4',
+      highlight: '#e0e0e0'
     };
-    this.animationDuration = 500; // milliseconds
+    this.animationDuration = 500;
     this.animationStartTime = null;
     this.animationStartState = null;
     this.animationEndState = null;
     this.currentSegment = null;
-    this.innerRadiusRatio = 0.6; // Adjust this value to change the thickness of the "doughnut"
-    this.setICalUrl = this.setICalUrl.bind(this);
-  }
-
-  // Set the iCal URL and fetch events
-  setICalUrl(url) {
-    this.icalUrl = url;
-    this.fetchEvents();
+    this.innerRadiusRatio = 0.6;
+    this.selectedDayInWeek = null;
   }
 
   drawYearView() {
@@ -213,15 +208,16 @@ class ZInfinityCalendar {
         case 'week':
           this.currentSegment = { 
             month: this.currentSegment.month,
-            week: segment 
+            week: Math.floor(segment / 7) 
           };
           break;
         case 'day':
           this.currentSegment = { 
             month: this.currentSegment.month,
             week: this.currentSegment.week,
-            day: segment 
+            day: segment % 7 
           };
+          this.selectedDayInWeek = segment % 7; // Store the selected day
           break;
         case 'hour':
           this.currentSegment = { 
@@ -323,16 +319,16 @@ class ZInfinityCalendar {
         this.drawYearView();
         break;
       case 'month':
-        this.drawMonthView(this.currentSegment.month);
+        this.drawMonthView();
         break;
       case 'week':
-        this.drawWeekView(this.currentSegment);
+        this.drawWeekView();
         break;
       case 'day':
-        this.drawDayView(this.currentSegment);
+        this.drawDayView();
         break;
       case 'hour':
-        this.drawHourView(this.currentSegment);
+        this.drawHourView();
         break;
     }
   }
@@ -450,7 +446,7 @@ class ZInfinityCalendar {
     // Implement hour events display logic here
   }
 
-  drawWeekView(weekIndex) {
+  drawWeekView() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     const centerX = this.canvas.width / 2;
@@ -458,11 +454,21 @@ class ZInfinityCalendar {
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
+    // Ensure we have valid month and week in currentSegment
+    if (!this.currentSegment || typeof this.currentSegment.month === 'undefined' || typeof this.currentSegment.week === 'undefined') {
+      console.error('Invalid currentSegment:', this.currentSegment);
+      return;
+    }
+
+    // Calculate the start date of the week
+    const startDate = new Date(this.year, this.currentSegment.month, 1 + this.currentSegment.week * 7);
+
     for (let i = 0; i < 7; i++) {
       const startAngle = (i / 7) * 2 * Math.PI - Math.PI / 2;
       const endAngle = ((i + 1) / 7) * 2 * Math.PI - Math.PI / 2;
 
-      this.ctx.fillStyle = this.colors.segment;
+      // Highlight the selected day
+      this.ctx.fillStyle = (i === this.selectedDayInWeek) ? this.colors.highlight : this.colors.segment;
       this.ctx.beginPath();
       this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
       this.ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
@@ -482,11 +488,16 @@ class ZInfinityCalendar {
       this.ctx.font = '14px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i], labelX, labelY);
+      this.ctx.fillText(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i], labelX, labelY - 10);
+
+      // Add date of the month
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + i);
+      this.ctx.font = '12px Arial';
+      this.ctx.fillText(currentDate.getDate().toString(), labelX, labelY + 10);
     }
 
     // Calculate the start and end dates of the week
-    const startDate = new Date(this.year, this.currentSegment.month, 1 + this.currentSegment.week * 7);
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 6);
 
@@ -503,10 +514,10 @@ class ZInfinityCalendar {
     // Calculate and display the week number
     const weekNumber = this.getWeekNumber(startDate);
     this.ctx.font = '14px Arial';
-    this.ctx.fillText(`Week nr. ${weekNumber}`, centerX, centerY + 15);
+    this.ctx.fillText(`Week ${weekNumber}`, centerX, centerY + 15);
 
     // Display events for this week (implementation needed)
-    this.displayWeekEvents(startDate, endDate);
+    // this.displayWeekEvents(startDate, endDate);
   }
 
   // Add a helper method to calculate the week number
@@ -518,7 +529,7 @@ class ZInfinityCalendar {
     return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
   }
 
-  drawDayView(dayIndex) {
+  drawDayView() {
     // Clear the canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -644,14 +655,6 @@ document.getElementById('calendarCanvas').addEventListener('click', (event) => {
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
   calendar.handleClick(x, y);
-});
-
-document.getElementById('calendarLink').addEventListener('click', () => {
-  const url = prompt('Enter iCal URL:');
-  if (url) {
-    calendar.icalUrl = url;
-    calendar.fetchEvents();
-  }
 });
 
 document.addEventListener('keydown', (event) => {

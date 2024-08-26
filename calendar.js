@@ -391,6 +391,7 @@ class ZInfinityCalendar {
     const prevViewIndex = this.zoomLevels.indexOf(this.currentView) - 1;
     if (prevViewIndex >= 0) {
       const prevView = this.currentView;
+      const prevSegment = { ...this.currentSegment };  // Clone the current segment
       this.currentView = this.zoomLevels[prevViewIndex];
 
       const startState = { zoom: 1 };
@@ -399,7 +400,6 @@ class ZInfinityCalendar {
       // Update currentSegment based on the view we're zooming out to
       switch (this.currentView) {
         case 'year':
-          // Instead of setting to null, keep the month information
           this.currentSegment = { month: this.currentSegment.month };
           break;
         case 'month':
@@ -425,7 +425,7 @@ class ZInfinityCalendar {
           const currentState = {
             zoom: startState.zoom + (endState.zoom - startState.zoom) * progress
           };
-          this.drawTransition(prevView, this.currentView, this.currentSegment, 1 - currentState.zoom);
+          this.drawTransition(prevView, this.currentView, prevSegment, this.currentSegment, 1 - currentState.zoom);
         },
         this.animationDuration,
         () => {
@@ -436,17 +436,17 @@ class ZInfinityCalendar {
     }
   }
 
-  drawTransition(fromView, toView, segment, progress) {
+  drawTransition(fromView, toView, fromSegment, toSegment, progress) {
     // Clear the canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     // Draw the "from" view slightly faded
     this.ctx.globalAlpha = 1 - progress;
-    this.drawView(fromView, segment);
+    this.drawView(fromView, fromSegment);
 
     // Draw the "to" view fading in
     this.ctx.globalAlpha = progress;
-    this.drawView(toView, segment);
+    this.drawView(toView, toSegment);
 
     // Reset global alpha
     this.ctx.globalAlpha = 1;
@@ -473,6 +473,9 @@ class ZInfinityCalendar {
   }
 
   drawView(view, segment) {
+    const originalSegment = this.currentSegment;
+    this.currentSegment = segment;  // Temporarily set the segment for drawing
+
     switch (view) {
       case 'year':
         this.drawYearView();
@@ -481,15 +484,31 @@ class ZInfinityCalendar {
         this.drawMonthView(segment ? segment.month : 0);
         break;
       case 'week':
-        this.drawWeekView(segment);
+        if (segment && segment.week !== undefined) {
+          this.drawWeekView(segment);
+        } else {
+          // Fallback to month view if week is not defined
+          this.drawMonthView(segment ? segment.month : 0);
+        }
         break;
       case 'day':
-        this.drawDayView(segment);
+        if (segment && segment.day !== undefined) {
+          this.drawDayView(segment);
+        } else {
+          // Fallback to week or month view if day is not defined
+          if (segment && segment.week !== undefined) {
+            this.drawWeekView(segment);
+          } else {
+            this.drawMonthView(segment ? segment.month : 0);
+          }
+        }
         break;
       case 'hour':
         this.drawHourView(segment);
         break;
     }
+
+    this.currentSegment = originalSegment;  // Restore the original segment
   }
 
   drawMonthView(monthIndex) {

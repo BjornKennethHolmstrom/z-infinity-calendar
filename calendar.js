@@ -454,20 +454,21 @@ class ZInfinityCalendar {
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
-    // Ensure we have valid month and week in currentSegment
     if (!this.currentSegment || typeof this.currentSegment.month === 'undefined' || typeof this.currentSegment.week === 'undefined') {
       console.error('Invalid currentSegment:', this.currentSegment);
       return;
     }
 
-    // Calculate the start date of the week
-    const startDate = new Date(this.year, this.currentSegment.month, 1 + this.currentSegment.week * 7);
+    // Calculate the correct start date of the week
+    const jan1 = new Date(this.year, 0, 1);
+    const daysSinceJan1 = this.currentSegment.week * 7;
+    const startDate = new Date(jan1);
+    startDate.setDate(jan1.getDate() + daysSinceJan1 - jan1.getDay());
 
     for (let i = 0; i < 7; i++) {
       const startAngle = (i / 7) * 2 * Math.PI - Math.PI / 2;
       const endAngle = ((i + 1) / 7) * 2 * Math.PI - Math.PI / 2;
 
-      // Highlight the selected day
       this.ctx.fillStyle = (i === this.selectedDayInWeek) ? this.colors.highlight : this.colors.segment;
       this.ctx.beginPath();
       this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
@@ -478,7 +479,6 @@ class ZInfinityCalendar {
       this.ctx.strokeStyle = this.colors.border;
       this.ctx.stroke();
 
-      // Add day labels
       const labelRadius = (outerRadius + innerRadius) / 2;
       const labelAngle = (startAngle + endAngle) / 2;
       const labelX = centerX + labelRadius * Math.cos(labelAngle);
@@ -488,20 +488,23 @@ class ZInfinityCalendar {
       this.ctx.font = '14px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i], labelX, labelY - 10);
 
-      // Add date of the month
       const currentDate = new Date(startDate);
       currentDate.setDate(startDate.getDate() + i);
+
+      // Display weekday
+      this.ctx.fillText(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()], labelX, labelY - 10);
+
+      // Display date
       this.ctx.font = '12px Arial';
       this.ctx.fillText(currentDate.getDate().toString(), labelX, labelY + 10);
     }
 
-    // Calculate the start and end dates of the week
+    // Calculate the end date of the week
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 6);
 
-    // Add week range and week number in the center
+    // Add week range in the center
     const dateOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
     const dateRangeText = `${startDate.toLocaleDateString('en-CA', dateOptions)} to ${endDate.toLocaleDateString('en-CA', dateOptions)}`;
     
@@ -528,7 +531,6 @@ class ZInfinityCalendar {
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
     return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
   }
-
   drawDayView() {
     // Clear the canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);

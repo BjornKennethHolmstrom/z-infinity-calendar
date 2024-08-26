@@ -19,6 +19,8 @@ class ZInfinityCalendar {
     this.innerRadiusRatio = 0.6;
     this.selectedDayInWeek = null;
     this.selectedDayInMonth = null;
+    this.lastZoomTime = 0; // Initialize lastZoomTime
+    this.zoomDelay = 300; // 300 milliseconds delay between zoom actions
 
     this.renderer = new CalendarRenderer(
       this.ctx,
@@ -89,7 +91,7 @@ class ZInfinityCalendar {
 
   handleKeyDown(event) {
     console.log('Key pressed:', event.key);
-    const currentTime = new Date().getTime();
+    const currentTime = Date.now(); // Use Date.now() for consistency
 
     if (event.key === 'z') {
       // Zoom in
@@ -111,6 +113,7 @@ class ZInfinityCalendar {
       }
     }
   }
+
 
   handleTouchStart(event) {
     if (event.touches.length === 2) {
@@ -405,37 +408,75 @@ class ZInfinityCalendar {
       const prevSegment = { ...this.currentSegment };  // Clone the current segment
       this.currentView = this.zoomLevels[prevViewIndex];
 
+      console.log('Zooming out from', prevView, 'to', this.currentView);
+
       // Update currentSegment based on the view we're zooming out to
       switch (this.currentView) {
         case 'year':
           this.currentSegment = { date: new Date(this.year, 0, 1) };
           break;
         case 'month':
-          this.currentSegment = { 
-            month: prevSegment.date.getMonth(),
-            date: new Date(prevSegment.date.getFullYear(), prevSegment.date.getMonth(), 1)
-          };
+          if (prevSegment.date) {
+            this.currentSegment = { 
+              month: prevSegment.date.getMonth(),
+              date: new Date(prevSegment.date.getFullYear(), prevSegment.date.getMonth(), 1)
+            };
+          } else if (prevSegment.month !== undefined) {
+            this.currentSegment = {
+              month: prevSegment.month,
+              date: new Date(this.year, prevSegment.month, 1)
+            };
+          } else {
+            console.error('Invalid prevSegment when zooming out to month view:', prevSegment);
+            this.currentSegment = { month: 0, date: new Date(this.year, 0, 1) };
+          }
           break;
         case 'week':
-          const weekStart = new Date(prevSegment.date);
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Set to Sunday
-          this.currentSegment = {
-            month: weekStart.getMonth(),
-            week: this.getWeekNumber(weekStart) - 1, // Adjust to 0-based index
-            date: weekStart
-          };
+          if (prevSegment.date) {
+            const weekStart = new Date(prevSegment.date);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Set to Sunday
+            this.currentSegment = {
+              month: weekStart.getMonth(),
+              week: this.getWeekNumber(weekStart) - 1, // Adjust to 0-based index
+              date: weekStart
+            };
+          } else if (prevSegment.week !== undefined) {
+            const weekStart = this.getStartOfWeek(this.year, prevSegment.week);
+            this.currentSegment = {
+              month: weekStart.getMonth(),
+              week: prevSegment.week,
+              date: weekStart
+            };
+          } else {
+            console.error('Invalid prevSegment when zooming out to week view:', prevSegment);
+            this.currentSegment = { 
+              month: 0, 
+              week: 0, 
+              date: this.getStartOfWeek(this.year, 0) 
+            };
+          }
           break;
         case 'day':
-          this.currentSegment = {
-            month: prevSegment.date.getMonth(),
-            week: this.getWeekNumber(prevSegment.date) - 1, // Adjust to 0-based index
-            day: prevSegment.date.getDay(),
-            date: new Date(prevSegment.date)
-          };
+          if (prevSegment.date) {
+            this.currentSegment = {
+              month: prevSegment.date.getMonth(),
+              week: this.getWeekNumber(prevSegment.date) - 1, // Adjust to 0-based index
+              day: prevSegment.date.getDay(),
+              date: new Date(prevSegment.date)
+            };
+          } else {
+            console.error('Invalid prevSegment when zooming out to day view:', prevSegment);
+            this.currentSegment = { 
+              month: 0, 
+              week: 0, 
+              day: 0, 
+              date: new Date(this.year, 0, 1) 
+            };
+          }
           break;
       }
 
-      console.log('Zooming out to', this.currentView, 'with segment:', this.currentSegment);
+      console.log('Zoomed out to', this.currentView, 'with segment:', this.currentSegment);
       this.drawCurrentView();
     }
   }
@@ -624,6 +665,7 @@ class ZInfinityCalendar {
 const calendar = new ZInfinityCalendar('calendarCanvas', 2024);
 calendar.drawCurrentView();
 
+// Event listeners
 document.getElementById('calendarCanvas').addEventListener('click', (event) => {
   const rect = event.target.getBoundingClientRect();
   const x = event.clientX - rect.left;

@@ -30,6 +30,7 @@ class ZInfinityCalendar {
     this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: true });
     this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
     this.touchStartDistance = 0;
+    this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
   }
 
   drawYearView() {
@@ -82,6 +83,24 @@ class ZInfinityCalendar {
     this.ctx.fillText(this.year.toString(), centerX, centerY);
 
     this.displayEvents();
+  }
+
+  handleMouseMove(event) {
+    if (this.currentView === 'week') {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      for (let i = 0; i < 7; i++) {
+        if (this.ctx.isPointInPath(this.weekSegments[i], x, y)) {
+          if (this.selectedDayInWeek !== i) {
+            this.selectedDayInWeek = i;
+            this.drawWeekView(); // Redraw to show the new highlight
+          }
+          break;
+        }
+      }
+    }
   }
 
   handleWheel(event) {
@@ -354,11 +373,16 @@ class ZInfinityCalendar {
           }
           break;
         case 'day':
+       case 'day':
           if (prevView === 'week') {
-            this.currentSegment = { 
-              month: this.currentSegment.month,
+            const startOfWeek = new Date(this.year, 0, 1 + (this.currentSegment.week * 7));
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Adjust to start of week
+            const selectedDate = new Date(startOfWeek);
+            selectedDate.setDate(startOfWeek.getDate() + this.selectedDayInWeek);
+            this.currentSegment = {
+              month: selectedDate.getMonth(),
               week: this.currentSegment.week,
-              day: segment % 7 
+              day: this.selectedDayInWeek
             };
             this.selectedDayInWeek = segment % 7;
           } else if (prevView === 'month') {
@@ -640,6 +664,13 @@ class ZInfinityCalendar {
       this.ctx.strokeStyle = this.colors.border;
       this.ctx.stroke();
 
+      // Store the path for later hit detection
+      this.weekSegments = this.weekSegments || [];
+      this.weekSegments[i] = new Path2D();
+      this.weekSegments[i].arc(centerX, centerY, outerRadius, startAngle, endAngle);
+      this.weekSegments[i].arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
+      this.weekSegments[i].closePath();
+
       const labelRadius = (outerRadius + innerRadius) / 2;
       const labelAngle = (startAngle + endAngle) / 2;
       const labelX = centerX + labelRadius * Math.cos(labelAngle);
@@ -773,6 +804,8 @@ document.getElementById('calendarCanvas').addEventListener('click', (event) => {
   const y = event.clientY - rect.top;
   calendar.handleClick(x, y);
 });
+
+document.addEventListener('keydown', (event) => calendar.handleKeyDown(event));
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {

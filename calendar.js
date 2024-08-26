@@ -229,22 +229,8 @@ class ZInfinityCalendar {
           break;
       }
 
-      const startState = { zoom: 0 };
-      const endState = { zoom: 1 };
-
-      this.animate(
-        (progress) => {
-          const currentState = {
-            zoom: startState.zoom + (endState.zoom - startState.zoom) * progress
-          };
-          this.drawTransition(prevView, this.currentView, this.currentSegment, currentState.zoom);
-        },
-        this.animationDuration,
-        () => {
-          console.log(`Zoomed in to ${this.currentView} view, segment:`, this.currentSegment);
-          this.drawCurrentView();
-        }
-      );
+      // Implement animation and drawing logic here
+      this.drawCurrentView();
     }
   }
 
@@ -531,6 +517,7 @@ class ZInfinityCalendar {
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
     return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
   }
+
   drawDayView() {
     // Clear the canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -568,9 +555,10 @@ class ZInfinityCalendar {
     }
 
     // Calculate the correct date
-    const startOfMonth = new Date(this.year, this.currentSegment.month, 1);
-    const currentDate = new Date(startOfMonth);
-    currentDate.setDate(startOfMonth.getDate() + this.currentSegment.week * 7 + this.currentSegment.day);
+    const jan1 = new Date(this.year, 0, 1);
+    const daysSinceJan1 = this.currentSegment.week * 7 + this.currentSegment.day;
+    const currentDate = new Date(jan1);
+    currentDate.setDate(jan1.getDate() + daysSinceJan1 - jan1.getDay());
 
     // Add date in the center
     this.ctx.fillStyle = this.colors.text;

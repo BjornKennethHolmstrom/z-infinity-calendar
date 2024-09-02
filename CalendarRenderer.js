@@ -12,6 +12,20 @@ class CalendarRenderer {
     this.eventManager = eventManager;
   }
 
+  drawBackground(centerX, centerY, outerRadius, innerRadius) {
+    this.ctx.fillStyle = this.colors.background;
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
+    this.ctx.fill();
+    
+    // Clear the inner circle
+    this.ctx.globalCompositeOperation = 'destination-out';
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
+    this.ctx.fill();
+    this.ctx.globalCompositeOperation = 'source-over';
+  }
+
   drawYearView() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     const centerX = this.canvas.width / 2;
@@ -19,12 +33,7 @@ class CalendarRenderer {
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
-    // Draw background "doughnut"
-    this.ctx.fillStyle = this.colors.background;
-    this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
-    this.ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI, true);
-    this.ctx.fill();
+    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
     // Draw month segments
     for (let i = 0; i < 12; i++) {
@@ -75,6 +84,8 @@ class CalendarRenderer {
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
+    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
+
     const currentMonth = currentSegment.month;
     const daysInMonth = new Date(this.year, currentMonth + 1, 0).getDate();
 
@@ -121,6 +132,8 @@ class CalendarRenderer {
     const centerY = this.canvas.height / 2;
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
+
+    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
     if (!currentSegment || typeof currentSegment.week === 'undefined') {
       console.error('Invalid currentSegment in drawWeekView:', currentSegment);
@@ -208,6 +221,8 @@ class CalendarRenderer {
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
+    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
+
     for (let i = 0; i < 24; i++) {
       const startAngle = (i / 24) * 2 * Math.PI - Math.PI / 2;
       const endAngle = ((i + 1) / 24) * 2 * Math.PI - Math.PI / 2;
@@ -235,18 +250,13 @@ class CalendarRenderer {
       this.ctx.fillText(`${i}:00`, labelX, labelY);
     }
 
-    // Use the date provided in currentSegment
+    // Display date in the center
     if (currentSegment && currentSegment.date) {
-      const currentDate = currentSegment.date;
-
-      // Add date in the center
       this.ctx.fillStyle = this.colors.text;
       this.ctx.font = '20px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(currentDate.toDateString(), centerX, centerY);
-    } else {
-      console.error('Invalid currentSegment in drawDayView:', currentSegment);
+      this.ctx.fillText(currentSegment.date.toDateString(), centerX, centerY);
     }
 
     // Display events for this day
@@ -261,6 +271,8 @@ class CalendarRenderer {
     const centerY = this.canvas.height / 2;
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
+
+    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
     // Draw 60 segments for minutes
     for (let i = 0; i < 60; i++) {

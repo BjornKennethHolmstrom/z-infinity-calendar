@@ -1,4 +1,5 @@
 // ZInfinityCalendar.js
+
 class ZInfinityCalendar {
   constructor(canvasId, year) {
     this.canvas = document.getElementById(canvasId);
@@ -22,6 +23,11 @@ class ZInfinityCalendar {
     this.lastZoomTime = 0; // Initialize lastZoomTime
     this.zoomDelay = 300; // 300 milliseconds delay between zoom actions
 
+    this.initEventListeners();
+
+    this.eventManager = new EventManager();
+    //this.loadSampleData();
+
     this.renderer = new CalendarRenderer(
       this.ctx,
       this.canvas,
@@ -29,12 +35,9 @@ class ZInfinityCalendar {
       this.innerRadiusRatio,
       this.year,
       this.getMonthName.bind(this),
-      this.getStartOfWeek.bind(this)
+      this.getStartOfWeek.bind(this),
+      this.eventManager
     );
-
-    this.eventManager = new EventManager();
-
-    this.initEventListeners();
   }
 
   initEventListeners() {
@@ -50,6 +53,29 @@ class ZInfinityCalendar {
   getMonthName(monthIndex) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[monthIndex];
+  }
+
+  loadSampleData() {
+    fetch('tito-sample-database.json')
+      .then(response => response.json())
+      .then(data => {
+        console.log('Sample data loaded:', data); // Debug log
+        data.timeEntries.forEach(entry => {
+          const event = new CalendarEvent(
+            entry.id,
+            entry.projectId,
+            entry.start,
+            entry.end,
+            entry.duration,
+            entry.description,
+            entry.order
+          );
+          this.eventManager.addEvent(event);
+        });
+        console.log('Events added to manager:', this.eventManager.events); // Debug log
+        this.drawCurrentView();
+      })
+      .catch(error => console.error('Error loading sample data:', error));
   }
 
   handleMouseMove(event) {
@@ -328,6 +354,10 @@ class ZInfinityCalendar {
     }
   }
 
+  clearCanvas() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
   zoomIn(segment) {
     console.log('zoomIn called', { segment, currentView: this.currentView });
     const currentViewIndex = this.zoomLevels.indexOf(this.currentView);
@@ -395,6 +425,7 @@ class ZInfinityCalendar {
       }
 
       console.log('Updated currentSegment', this.currentSegment);
+      this.clearCanvas();
       this.drawCurrentView();
     } else {
       console.log('Already at maximum zoom level');
@@ -477,6 +508,7 @@ class ZInfinityCalendar {
       }
 
       console.log('Zoomed out to', this.currentView, 'with segment:', this.currentSegment);
+      this.clearCanvas();
       this.drawCurrentView();
     }
   }
@@ -518,6 +550,7 @@ class ZInfinityCalendar {
   }
 
   drawCurrentView() {
+    this.clearCanvas();
     switch (this.currentView) {
       case 'year':
         this.renderer.drawYearView();
@@ -659,24 +692,79 @@ class ZInfinityCalendar {
         this.renderer.drawHourView();
     }
   }
+
+  clearDatabase() {
+    this.eventManager.clearEvents().then(() => {
+      console.log("Database cleared");
+      this.drawCurrentView();
+    }).catch(error => {
+      console.error("Error clearing database:", error);
+    });
+  }
+
+  importData(data) {
+    console.log('Importing data:', data);
+    this.eventManager.clearEvents().then(() => {
+      const promises = data.timeEntries.map(entry => {
+        const event = new CalendarEvent(
+          entry.id,
+          entry.projectId,
+          entry.start,
+          entry.end,
+          entry.duration,
+          entry.description,
+          entry.order
+        );
+        return this.eventManager.addEvent(event);
+      });
+      return Promise.all(promises);
+    }).then(() => {
+      console.log('Events after import:', this.eventManager.events);
+      this.drawCurrentView();
+    }).catch(error => {
+      console.error("Error importing data:", error);
+    });
+  }
+
+  exportData() {
+    const data = {
+      timeEntries: this.eventManager.events.map(event => ({
+        id: event.id,
+        projectId: event.projectId,
+        start: event.start.toISOString(),
+        end: event.end.toISOString(),
+        duration: event.duration,
+        description: event.description,
+        order: event.order
+      }))
+    };
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'calendar_data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  parseICalData(icalData) {
+    const jcalData = ICAL.parse(icalData);
+    const vcalendar = new ICAL.Component(jcalData);
+    const events = vcalendar.getAllSubcomponents('vevent').map(vevent => {
+      const event = new ICAL.Event(vevent);
+      return new CalendarEvent(
+        event.uid,
+        null, // projectId (not available in iCal)
+        event.startDate.toJSDate(),
+        event.endDate.toJSDate(),
+        event.duration.toSeconds() * 1000, // Convert to milliseconds
+        event.summary,
+        0 // order (not available in iCal)
+      );
+    });
+    return events;
+  }
+
 }
 
-// Usage
-const calendar = new ZInfinityCalendar('calendarCanvas', 2024);
-calendar.drawCurrentView();
-
-// Event listeners
-document.getElementById('calendarCanvas').addEventListener('click', (event) => {
-  const rect = event.target.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  calendar.handleClick(x, y);
-});
-
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') {
-    calendar.zoomOut();
-  } else {
-    calendar.handleKeyDown(event);
-  }
-});

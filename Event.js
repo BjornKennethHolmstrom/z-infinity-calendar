@@ -1,10 +1,14 @@
 // Event.js
+
 class CalendarEvent {
-  constructor(id, title, startDate, endDate, description = '') {
+  constructor(id, projectId, start, end, duration, description, order) {
     this.id = id;
-    this.title = title;
-    this.startDate = startDate;
-    this.endDate = endDate;
+    this.projectId = projectId;
+    this.start = new Date(start);
+    this.end = new Date(end);
+    this.duration = duration;
     this.description = description;
+    this.order = order;
   }
 }
+

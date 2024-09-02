@@ -1,7 +1,7 @@
 // CalendarRenderer.js
 
 class CalendarRenderer {
-  constructor(ctx, canvas, colors, innerRadiusRatio, year, getMonthName, getStartOfWeek) {
+  constructor(ctx, canvas, colors, innerRadiusRatio, year, getMonthName, getStartOfWeek, eventManager) {
     this.ctx = ctx;
     this.canvas = canvas;
     this.colors = colors;
@@ -9,6 +9,7 @@ class CalendarRenderer {
     this.year = year;
     this.getMonthName = getMonthName;
     this.getStartOfWeek = getStartOfWeek;
+    this.eventManager = eventManager;
   }
 
   drawYearView() {
@@ -248,7 +249,8 @@ class CalendarRenderer {
       console.error('Invalid currentSegment in drawDayView:', currentSegment);
     }
 
-    // Display events for this day (implementation needed)
+    // Display events for this day
+    this.displayDayEvents(currentSegment.date);
   }
 
   drawHourView(currentSegment) {
@@ -306,6 +308,46 @@ class CalendarRenderer {
 
     // Display events for this hour (implementation needed)
     // this.calendar.displayHourEvents(this.currentSegment.hour);
+  }
+
+  displayDayEvents(date) {
+    console.log('Displaying events for date:', date);
+    this.eventManager.getEventsForDate(date).then(events => {
+      console.log('Events for date:', events);
+      const centerX = this.canvas.width / 2;
+      const centerY = this.canvas.height / 2;
+      const outerRadius = Math.min(centerX, centerY) - 10;
+      const innerRadius = outerRadius * this.innerRadiusRatio;
+
+      events.forEach(event => {
+        const startHour = event.start.getHours() + event.start.getMinutes() / 60;
+        const endHour = event.end.getHours() + event.end.getMinutes() / 60;
+
+        const startAngle = (startHour / 24) * 2 * Math.PI - Math.PI / 2;
+        const endAngle = (endHour / 24) * 2 * Math.PI - Math.PI / 2;
+
+        // Draw event arc
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, centerY, (outerRadius + innerRadius) / 2, startAngle, endAngle);
+        this.ctx.lineWidth = outerRadius - innerRadius;
+        this.ctx.strokeStyle = this.colors.event;
+        this.ctx.stroke();
+
+        // Draw event description
+        const midAngle = (startAngle + endAngle) / 2;
+        const textRadius = (outerRadius + innerRadius) / 2;
+        const textX = centerX + textRadius * Math.cos(midAngle);
+        const textY = centerY + textRadius * Math.sin(midAngle);
+
+        this.ctx.save();
+        this.ctx.translate(textX, textY);
+        this.ctx.rotate(midAngle + Math.PI / 2);
+        this.ctx.fillStyle = this.colors.text;
+        this.ctx.font = '12px Arial';
+        this.ctx.fillText(event.description, 0, 0);
+        this.ctx.restore();
+      });
+    });
   }
 
 }

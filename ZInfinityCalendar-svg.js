@@ -322,19 +322,14 @@ class ZInfinityCalendar {
     this.renderer.setCurrentView(this.currentView, this.currentSegment);
   }
 
-  getSegmentFromPosition(clientX, clientY) {
-    const svgPoint = this.svg.createSVGPoint();
-    svgPoint.x = clientX;
-    svgPoint.y = clientY;
-    const transformedPoint = svgPoint.matrixTransform(this.calendarGroup.getScreenCTM().inverse());
-
-    const centerX = 500; // Assuming the center is at 500,500 based on your viewBox
+  getSegmentFromPosition(x, y) {
+    const centerX = 500; // center of the SVG viewBox
     const centerY = 500;
     const outerRadius = 490;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
-    const dx = transformedPoint.x - centerX;
-    const dy = transformedPoint.y - centerY;
+    const dx = x - centerX;
+    const dy = y - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance <= outerRadius && distance >= innerRadius) {
@@ -348,13 +343,16 @@ class ZInfinityCalendar {
           totalSegments = 12;
           break;
         case 'month':
-          totalSegments = new Date(this.currentSegment.year, this.currentSegment.month + 1, 0).getDate();
+          totalSegments = new Date(this.currentYear, this.currentSegment.month + 1, 0).getDate();
           break;
         case 'week':
           totalSegments = 7;
           break;
         case 'day':
           totalSegments = 24;
+          break;
+        case 'hour':
+          totalSegments = 60;
           break;
         default:
           return null;

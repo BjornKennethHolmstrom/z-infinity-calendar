@@ -4,7 +4,8 @@ class CalendarRenderer {
     this.calendarGroup = calendarGroup;
     this.colors = colors;
     this.innerRadiusRatio = innerRadiusRatio;
-    this.year = year;
+    this.currentYear = year;
+    this.currentSegment = { year: this.currentYear };
     this.getMonthName = getMonthName;
     this.getStartOfWeek = getStartOfWeek;
     this.eventManager = eventManager;
@@ -21,31 +22,9 @@ class CalendarRenderer {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
-    // Draw month segments
-    for (let i = 0; i < 12; i++) {
-      const startAngle = (i / 12) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((i + 1) / 12) * 2 * Math.PI - Math.PI / 2;
-
-      const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
-      path.setAttribute("fill", this.colors.segment);
-      path.setAttribute("stroke", this.colors.border);
-      this.calendarGroup.appendChild(path);
-
-      // Add month labels
-      const labelRadius = (outerRadius + innerRadius) / 2;
-      const labelAngle = (startAngle + endAngle) / 2;
-      const labelX = centerX + labelRadius * Math.cos(labelAngle);
-      const labelY = centerY + labelRadius * Math.sin(labelAngle);
-
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("x", labelX);
-      text.setAttribute("y", labelY);
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("dominant-baseline", "middle");
-      text.setAttribute("fill", this.colors.text);
-      text.textContent = this.getMonthName(i);
-      this.calendarGroup.appendChild(text);
-    }
+    this.drawSegments(12, (index, startAngle, endAngle) => {
+      this.drawMonthSegment(index, startAngle, endAngle);
+    });
 
     // Add year display in the center
     const yearText = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -55,12 +34,8 @@ class CalendarRenderer {
     yearText.setAttribute("dominant-baseline", "middle");
     yearText.setAttribute("fill", this.colors.text);
     yearText.setAttribute("font-size", "24");
-    yearText.textContent = this.year.toString();
+    yearText.textContent = this.currentSegment.year.toString();
     this.calendarGroup.appendChild(yearText);
-
-    this.drawSegments(12, (index, startAngle, endAngle) => {
-      this.drawMonthSegment(index, startAngle, endAngle);
-    });
   }
 
   drawBackground(centerX, centerY, outerRadius, innerRadius) {
@@ -113,11 +88,10 @@ class CalendarRenderer {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
-    const currentMonth = currentSegment.month;
-    const daysInMonth = new Date(this.year, currentMonth + 1, 0).getDate();
+    const daysInMonth = new Date(currentSegment.year, currentSegment.month + 1, 0).getDate();
 
     this.drawSegments(daysInMonth, (index, startAngle, endAngle) => {
-      this.drawDaySegment(index, startAngle, endAngle, currentMonth);
+      this.drawDaySegment(index, startAngle, endAngle, currentSegment.month);
     });
 
     // Add month name and year in the center
@@ -128,7 +102,7 @@ class CalendarRenderer {
     monthYearText.setAttribute("dominant-baseline", "middle");
     monthYearText.setAttribute("fill", this.colors.text);
     monthYearText.setAttribute("font-size", "20");
-    monthYearText.textContent = `${this.monthNames[currentSegment.month]}, ${this.year}`;
+    monthYearText.textContent = `${this.monthNames[currentSegment.month]}, ${currentSegment.year}`;
     this.calendarGroup.appendChild(monthYearText);
   }
 
@@ -160,7 +134,6 @@ class CalendarRenderer {
     dateRangeText.textContent = `${this.formatDate(startDate)} to ${this.formatDate(endDate)}`;
     this.calendarGroup.appendChild(dateRangeText);
 
-    // Add week number
     const weekNumber = this.getWeekNumber(startDate);
     const weekNumberText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     weekNumberText.setAttribute("x", centerX);
@@ -211,11 +184,38 @@ class CalendarRenderer {
     this.displayDayEvents(currentSegment.date);
   }
 
-  // Add this method to display events (implementation needed)
-  displayDayEvents(group, date) {
-    // TODO: Implement event display logic
-    console.log('Displaying events for date:', date);
-    // This method will be implemented when we add event handling
+  displayDayEvents(date) {
+    const events = this.eventManager.getEventsForDate(date);
+    const centerX = 500;
+    const centerY = 500;
+    const outerRadius = 490;
+    const innerRadius = outerRadius * this.innerRadiusRatio;
+
+    events.forEach((event, index) => {
+      const startAngle = (event.startDate.getHours() / 24) * 2 * Math.PI - Math.PI / 2;
+      const endAngle = (event.endDate.getHours() / 24) * 2 * Math.PI - Math.PI / 2;
+      const eventRadius = innerRadius + (outerRadius - innerRadius) * 0.8; // Place events near the outer edge
+
+      const path = this.createArcPath(centerX, centerY, eventRadius, eventRadius - 10, startAngle, endAngle);
+      path.setAttribute("fill", this.colors.event);
+      path.setAttribute("stroke", "none");
+      this.calendarGroup.appendChild(path);
+
+      // Add event title
+      const labelAngle = (startAngle + endAngle) / 2;
+      const labelX = centerX + eventRadius * Math.cos(labelAngle);
+      const labelY = centerY + eventRadius * Math.sin(labelAngle);
+
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", labelX);
+      text.setAttribute("y", labelY);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "middle");
+      text.setAttribute("fill", "#ffffff");
+      text.setAttribute("font-size", "10");
+      text.textContent = event.title;
+      this.calendarGroup.appendChild(text);
+    });
   }
 
   drawHourView(currentSegment) {
@@ -234,31 +234,21 @@ class CalendarRenderer {
     if (currentSegment && currentSegment.date) {
       const dateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
       dateText.setAttribute("x", centerX);
-      dateText.setAttribute("y", centerY - 30);
+      dateText.setAttribute("y", centerY - 15);
       dateText.setAttribute("text-anchor", "middle");
       dateText.setAttribute("dominant-baseline", "middle");
       dateText.setAttribute("fill", this.colors.text);
-      dateText.setAttribute("font-size", "20");
-      dateText.textContent = this.dayNames[currentSegment.date.getDay()];
+      dateText.setAttribute("font-size", "16");
+      dateText.textContent = currentSegment.date.toDateString();
       this.calendarGroup.appendChild(dateText);
-
-      const fullDateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      fullDateText.setAttribute("x", centerX);
-      fullDateText.setAttribute("y", centerY);
-      fullDateText.setAttribute("text-anchor", "middle");
-      fullDateText.setAttribute("dominant-baseline", "middle");
-      fullDateText.setAttribute("fill", this.colors.text);
-      fullDateText.setAttribute("font-size", "16");
-      fullDateText.textContent = currentSegment.date.toDateString();
-      this.calendarGroup.appendChild(fullDateText);
 
       const hourText = document.createElementNS("http://www.w3.org/2000/svg", "text");
       hourText.setAttribute("x", centerX);
-      hourText.setAttribute("y", centerY + 30);
+      hourText.setAttribute("y", centerY + 15);
       hourText.setAttribute("text-anchor", "middle");
       hourText.setAttribute("dominant-baseline", "middle");
       hourText.setAttribute("fill", this.colors.text);
-      hourText.setAttribute("font-size", "16");
+      hourText.setAttribute("font-size", "14");
       hourText.textContent = `Hour ${currentSegment.date.getHours()}`;
       this.calendarGroup.appendChild(hourText);
     }
@@ -285,15 +275,15 @@ class CalendarRenderer {
     const labelX = centerX + labelRadius * Math.cos(labelAngle);
     const labelY = centerY + labelRadius * Math.sin(labelAngle);
 
-  const monthText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  monthText.setAttribute("x", labelX);
-  monthText.setAttribute("y", labelY);
-  monthText.setAttribute("text-anchor", "middle");
-  monthText.setAttribute("dominant-baseline", "middle");
-  monthText.setAttribute("fill", this.colors.text);
-  monthText.setAttribute("font-size", "14");
-  monthText.textContent = this.monthNames[index];
-  this.calendarGroup.appendChild(monthText);
+    const monthText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    monthText.setAttribute("x", labelX);
+    monthText.setAttribute("y", labelY);
+    monthText.setAttribute("text-anchor", "middle");
+    monthText.setAttribute("dominant-baseline", "middle");
+    monthText.setAttribute("fill", this.colors.text);
+    monthText.setAttribute("font-size", "14");
+    monthText.textContent = this.monthNames[index];
+    this.calendarGroup.appendChild(monthText);
   }
 
   drawDaySegment(index, startAngle, endAngle, month) {
@@ -303,7 +293,7 @@ class CalendarRenderer {
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
     const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
-    path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
+    path.setAttribute("fill", this.colors.segment);
     path.setAttribute("stroke", this.colors.border);
     path.setAttribute("data-segment", index);
     this.calendarGroup.appendChild(path);
@@ -487,8 +477,8 @@ class CalendarRenderer {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
   }
 
 }

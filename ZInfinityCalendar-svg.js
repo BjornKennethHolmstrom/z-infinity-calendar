@@ -35,7 +35,7 @@ class ZInfinityCalendar {
       this.calendarGroup,
       this.colors,
       this.innerRadiusRatio,
-      this.year,
+      this.currentYear,
       this.getMonthName.bind(this),
       this.getStartOfWeek.bind(this),
       this.eventManager
@@ -74,10 +74,11 @@ class ZInfinityCalendar {
     this.svg.addEventListener('click', this.handleClick.bind(this));
   }
 
+
   updateTransform() {
-    const transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
-    this.calendarGroup.style.transform = transform;
+    this.calendarGroup.setAttribute('transform', `translate(${this.panX},${this.panY}) scale(${this.zoomLevel})`);
   }
+   
 
   drawCurrentView() {
     while (this.calendarGroup.firstChild) {
@@ -119,7 +120,10 @@ class ZInfinityCalendar {
   }
 
   handleMouseMove(event) {
-    const newHoveredSegment = this.getSegmentFromPosition(event.clientX, event.clientY);
+    const rect = this.svg.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const newHoveredSegment = this.getSegmentFromPosition(x, y);
     if (newHoveredSegment !== this.hoveredSegment) {
       this.hoveredSegment = newHoveredSegment;
       this.renderer.setHoveredSegment(this.hoveredSegment);
@@ -148,48 +152,77 @@ class ZInfinityCalendar {
   handleClick(event) {
     if (!this.hasDragged) {
       const rect = this.svg.getBoundingClientRect();
-      const x = (event.clientX - rect.left - this.panX) / this.zoomLevel;
-      const y = (event.clientY - rect.top - this.panY) / this.zoomLevel;
-      this.zoomInToPosition(x, y);
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const segment = this.getSegmentFromPosition(x, y);
+      if (segment !== null) {
+        this.zoomInToPosition(x, y);
+      }
     }
     this.hasDragged = false;
   }
 
   handleTouchStart(event) {
-    if (event.touches.length === 2) {
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const rect = this.svg.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      this.touchStartSegment = this.getSegmentFromPosition(x, y);
+      this.lastTouchX = touch.clientX;
+      this.lastTouchY = touch.clientY;
+    } else if (event.touches.length === 2) {
       const touch1 = event.touches[0];
       const touch2 = event.touches[1];
       this.touchStartDistance = Math.hypot(
         touch1.clientX - touch2.clientX,
         touch1.clientY - touch2.clientY
       );
+      this.lastTouchX = (touch1.clientX + touch2.clientX) / 2;
       this.lastTouchY = (touch1.clientY + touch2.clientY) / 2;
-      this.isTimeZooming = true;
     }
   }
 
   handleTouchMove(event) {
-    if (this.isTimeZooming && event.touches.length === 2) {
+    event.preventDefault();
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const rect = this.svg.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      const currentSegment = this.getSegmentFromPosition(x, y);
+      
+      if (currentSegment !== this.touchStartSegment) {
+        // Handle segment change if needed
+        this.touchStartSegment = currentSegment;
+      }
+      
+      const dx = touch.clientX - this.lastTouchX;
+      const dy = touch.clientY - this.lastTouchY;
+      this.pan(dx / this.zoomLevel, dy / this.zoomLevel);
+      this.lastTouchX = touch.clientX;
+      this.lastTouchY = touch.clientY;
+    } else if (event.touches.length === 2) {
       const touch1 = event.touches[0];
       const touch2 = event.touches[1];
-      const currentTouchY = (touch1.clientY + touch2.clientY) / 2;
+      const currentDistance = Math.hypot(
+        touch1.clientX - touch2.clientX,
+        touch1.clientY - touch2.clientY
+      );
+      const centerX = (touch1.clientX + touch2.clientX) / 2;
+      const centerY = (touch1.clientY + touch2.clientY) / 2;
       
-      if (currentTouchY < this.lastTouchY) {
-        const centerX = (touch1.clientX + touch2.clientX) / 2;
-        const centerY = (touch1.clientY + touch2.clientY) / 2;
-        const segment = this.getSegmentFromPosition(centerX, centerY);
-        if (segment !== null) {
-          this.zoomInTimeView(segment);
-        }
-      } else if (currentTouchY > this.lastTouchY) {
-        this.zoomOutTimeView();
-      }
-      this.lastTouchY = currentTouchY;
+      const zoomFactor = currentDistance / this.touchStartDistance;
+      this.zoomTo(this.zoomLevel * zoomFactor, centerX, centerY);
+      
+      this.touchStartDistance = currentDistance;
+      this.lastTouchX = centerX;
+      this.lastTouchY = centerY;
     }
   }
 
   handleTouchEnd() {
-    this.isTimeZooming = false;
+
   }
 
   zoomInTimeView(segment) {
@@ -243,41 +276,71 @@ class ZInfinityCalendar {
   updateCurrentSegment(segment) {
     switch (this.currentView) {
       case 'year':
-        // No need to update, we're already at the year view
+        this.currentSegment = { year: this.currentYear };
         break;
       case 'month':
-        this.currentSegment.month = segment;
+        this.currentSegment = { 
+          year: this.currentYear,
+          month: segment,
+          date: new Date(this.currentYear, segment, 1)
+        };
         break;
       case 'week':
-        if (this.currentSegment.month === undefined) {
-          this.currentSegment.month = Math.floor(segment / 4); // Approximate
-        }
-        this.currentSegment.week = segment;
+        const weekStart = this.getStartOfWeek(this.currentYear, segment);
+        this.currentSegment = {
+          year: weekStart.getFullYear(),
+          month: weekStart.getMonth(),
+          week: segment,
+          date: weekStart
+        };
         break;
       case 'day':
-        if (this.currentSegment.week === undefined) {
-          this.currentSegment.week = Math.floor(segment / 7);
+        let dayDate;
+        if (this.currentSegment.week !== undefined) {
+          const weekStart = this.getStartOfWeek(this.currentYear, this.currentSegment.week);
+          dayDate = new Date(weekStart);
+          dayDate.setDate(dayDate.getDate() + segment);
+        } else if (this.currentSegment.month !== undefined) {
+          dayDate = new Date(this.currentYear, this.currentSegment.month, segment + 1);
+        } else {
+          dayDate = new Date(this.currentYear, 0, 1);
         }
-        this.currentSegment.day = segment;
+        this.currentSegment = {
+          year: dayDate.getFullYear(),
+          month: dayDate.getMonth(),
+          day: dayDate.getDate() - 1,
+          date: dayDate
+        };
         break;
       case 'hour':
-        this.currentSegment.hour = segment;
+        if (this.currentSegment.date) {
+          const hourDate = new Date(this.currentSegment.date);
+          hourDate.setHours(segment);
+          this.currentSegment = {
+            year: hourDate.getFullYear(),
+            month: hourDate.getMonth(),
+            day: hourDate.getDate() - 1,
+            hour: segment,
+            date: hourDate
+          };
+        }
         break;
     }
   }
 
   getSegmentFromPosition(clientX, clientY) {
-    const rect = this.svg.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    const svgPoint = this.svg.createSVGPoint();
+    svgPoint.x = clientX;
+    svgPoint.y = clientY;
+    const transformedPoint = svgPoint.matrixTransform(this.calendarGroup.getScreenCTM().inverse());
 
-    const centerX = this.svg.viewBox.baseVal.width / 2;
-    const centerY = this.svg.viewBox.baseVal.height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 10;
+    const centerX = 500; // Assuming the center is at 500,500 based on your viewBox
+    const centerY = 500;
+    const outerRadius = 490;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
-    const dx = x - centerX;
-    const dy = y - centerY;
+    const dx = transformedPoint.x - centerX;
+    const dy = transformedPoint.y - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance <= outerRadius && distance >= innerRadius) {
@@ -313,53 +376,23 @@ class ZInfinityCalendar {
     const segment = this.getSegmentFromPosition(x, y);
     if (segment !== null) {
       this.zoomIn(segment);
-      // Remove the centering logic, as it's causing the jumping effect
+      
+      // Calculate the new center point
+      const svgPoint = this.svg.createSVGPoint();
+      svgPoint.x = x;
+      svgPoint.y = y;
+      const transformedPoint = svgPoint.matrixTransform(this.calendarGroup.getCTM().inverse());
+      
+      // Animate the centering
+      const centerX = 500;
+      const centerY = 500;
+      const dx = centerX - transformedPoint.x;
+      const dy = centerY - transformedPoint.y;
+      
+      this.animateTransform(dx, dy);
+      
       this.drawCurrentView();
     }
-  }
-
-  getSegmentFromPosition(x, y) {
-    const centerX = this.svg.viewBox.baseVal.width / 2;
-    const centerY = this.svg.viewBox.baseVal.height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 10;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
-    // Adjust x and y for pan and zoom
-    x = (x - this.panX) / this.zoomLevel;
-    y = (y - this.panY) / this.zoomLevel;
-
-    const dx = x - centerX;
-    const dy = y - centerY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance <= outerRadius && distance >= innerRadius) {
-      let angle = Math.atan2(dy, dx);
-      if (angle < 0) angle += 2 * Math.PI;
-      angle = (angle + Math.PI / 2) % (2 * Math.PI);
-
-      let totalSegments;
-      switch (this.currentView) {
-        case 'year':
-          totalSegments = 12;
-          break;
-        case 'month':
-          totalSegments = new Date(this.year, this.currentSegment.month + 1, 0).getDate();
-          break;
-        case 'week':
-          totalSegments = 7;
-          break;
-        case 'day':
-          totalSegments = 24;
-          break;
-        default:
-          return null;
-      }
-
-      const segment = Math.floor((angle / (2 * Math.PI)) * totalSegments);
-      return segment;
-    }
-
-    return null;
   }
 
   zoomTo(scale, centerX, centerY) {
@@ -379,59 +412,39 @@ class ZInfinityCalendar {
       const nextView = this.zoomLevels[currentViewIndex + 1];
       this.currentView = nextView;
       
-      // Update currentSegment structure
+      let date;
       switch (nextView) {
         case 'month':
-          this.currentSegment = { month: segment };
+          date = new Date(this.currentYear, segment, 1);
           break;
         case 'week':
           if (this.currentView === 'year') {
-            const date = new Date(this.year, segment, 1);
-            this.currentSegment = { 
-              month: segment,
-              week: this.getWeekNumber(date) - 1
-            };
-          } else if (this.currentView === 'month') {
-            const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
-            this.currentSegment = { 
-              month: this.currentSegment.month,
-              week: this.getWeekNumber(clickedDate) - 1
-            };
+            date = new Date(this.currentYear, segment, 1);
+          } else {
+            date = new Date(this.currentYear, this.currentSegment.month, segment + 1);
           }
           break;
         case 'day':
           if (this.currentView === 'week') {
-            const startOfWeek = this.getStartOfWeek(this.year, this.currentSegment.week);
-            const selectedDate = new Date(startOfWeek);
-            selectedDate.setDate(startOfWeek.getDate() + segment);
-            this.currentSegment = {
-              ...this.currentSegment,
-              day: segment,
-              date: selectedDate
-            };
-          } else if (this.currentView === 'month') {
-            const clickedDate = new Date(this.year, this.currentSegment.month, segment + 1);
-            this.currentSegment = {
-              month: this.currentSegment.month,
-              week: this.getWeekNumber(clickedDate) - 1,
-              day: clickedDate.getDay(),
-              date: clickedDate
-            };
+            const weekStart = this.getStartOfWeek(this.currentYear, this.currentSegment.week);
+            date = new Date(weekStart);
+            date.setDate(date.getDate() + segment);
+          } else {
+            date = new Date(this.currentYear, this.currentSegment.month, segment + 1);
           }
           break;
         case 'hour':
-          if (this.currentView === 'day') {
-            const currentDate = new Date(this.currentSegment.date);
-            currentDate.setHours(segment);
-            this.currentSegment = { 
-              ...this.currentSegment,
-              hour: segment,
-              date: currentDate
-            };
-          }
+          date = new Date(this.currentSegment.date);
+          date.setHours(segment);
           break;
       }
 
+      // Update currentYear if the date has changed to a new year
+      if (date.getFullYear() !== this.currentYear) {
+        this.currentYear = date.getFullYear();
+      }
+
+      this.updateCurrentSegment(segment, date);
       this.drawCurrentView();
     }
   }
@@ -439,59 +452,47 @@ class ZInfinityCalendar {
   zoomOut() {
     const prevViewIndex = this.zoomLevels.indexOf(this.currentView) - 1;
     if (prevViewIndex >= 0) {
-      const prevView = this.currentView;
-      const prevSegment = { ...this.currentSegment };
-      this.currentView = this.zoomLevels[prevViewIndex];
+      const prevView = this.zoomLevels[prevViewIndex];
+      this.currentView = prevView;
 
-      // Update currentSegment based on the view we're zooming out to
-      switch (this.currentView) {
+      switch (prevView) {
         case 'year':
-          this.currentSegment = { date: new Date(this.year, 0, 1) };
+          this.currentSegment = { year: this.currentYear };
           break;
         case 'month':
-          if (prevSegment.date) {
-            this.currentSegment = { 
-              month: prevSegment.date.getMonth(),
-              date: new Date(prevSegment.date.getFullYear(), prevSegment.date.getMonth(), 1)
-            };
-          } else if (prevSegment.month !== undefined) {
-            this.currentSegment = {
-              month: prevSegment.month,
-              date: new Date(this.year, prevSegment.month, 1)
-            };
-          }
+          this.currentSegment = {
+            year: this.currentYear,
+            month: this.currentSegment.date.getMonth(),
+            date: new Date(this.currentYear, this.currentSegment.date.getMonth(), 1)
+          };
           break;
         case 'week':
-          if (prevSegment.date) {
-            const weekStart = new Date(prevSegment.date);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-            this.currentSegment = {
-              month: weekStart.getMonth(),
-              week: this.getWeekNumber(weekStart) - 1,
-              date: weekStart
-            };
-          } else if (prevSegment.week !== undefined) {
-            const weekStart = this.getStartOfWeek(this.year, prevSegment.week);
-            this.currentSegment = {
-              month: weekStart.getMonth(),
-              week: prevSegment.week,
-              date: weekStart
-            };
-          }
+          const weekStart = this.getStartOfWeek(this.currentSegment.date.getFullYear(), this.getWeekNumber(this.currentSegment.date) - 1);
+          this.currentSegment = {
+            year: weekStart.getFullYear(),
+            month: weekStart.getMonth(),
+            week: this.getWeekNumber(weekStart) - 1,
+            date: weekStart
+          };
+          break;
+        case 'day':
+          this.currentSegment = {
+            year: this.currentSegment.date.getFullYear(),
+            month: this.currentSegment.date.getMonth(),
+            day: this.currentSegment.date.getDate() - 1,
+            date: new Date(this.currentSegment.date)
+          };
           break;
       }
 
       this.drawCurrentView();
     }
   }
-
+  
   pan(dx, dy) {
-    // Implement panning logic here
-    // This could involve updating the SVG viewBox or transforming the calendarGroup
-    const viewBox = this.svg.viewBox.baseVal;
-    viewBox.x -= dx;
-    viewBox.y -= dy;
-    this.svg.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+    this.panX += dx;
+    this.panY += dy;
+    this.updateTransform();
   }
 
   getWeekNumber(date) {

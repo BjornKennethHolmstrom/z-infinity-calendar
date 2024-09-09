@@ -285,7 +285,7 @@ class ZInfinityCalendar {
         };
         break;
       case 'week':
-        const weekStart = this.getStartOfWeek(this.currentYear, segment);
+        const weekStart = this.getStartOfWeek(segment);
         this.currentSegment = {
           year: this.currentYear,
           month: weekStart.getMonth(),
@@ -296,7 +296,7 @@ class ZInfinityCalendar {
       case 'day':
         let dayDate;
         if (this.currentSegment.week !== undefined) {
-          const weekStart = this.getStartOfWeek(this.currentYear, this.currentSegment.week);
+          const weekStart = this.getStartOfWeek(this.currentSegment.week);
           dayDate = new Date(weekStart);
           dayDate.setDate(dayDate.getDate() + segment);
         } else {
@@ -305,6 +305,7 @@ class ZInfinityCalendar {
         this.currentSegment = {
           year: this.currentYear,
           month: dayDate.getMonth(),
+          week: this.getWeekNumber(dayDate) - 1,
           day: segment,
           date: dayDate
         };

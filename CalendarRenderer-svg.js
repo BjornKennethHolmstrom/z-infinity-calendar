@@ -1,10 +1,10 @@
 class CalendarRenderer {
-  constructor(svg, calendarGroup, colors, innerRadiusRatio, year, getMonthName, getStartOfWeek, eventManager) {
+  constructor(svg, calendarGroup, colors, innerRadiusRatio, currentYear, getMonthName, getStartOfWeek, eventManager) {
     this.svg = svg;
     this.calendarGroup = calendarGroup;
     this.colors = colors;
     this.innerRadiusRatio = innerRadiusRatio;
-    this.currentYear = year;
+    this.currentYear = currentYear;
     this.currentSegment = { year: this.currentYear };
     this.getMonthName = getMonthName;
     this.getStartOfWeek = getStartOfWeek;
@@ -34,7 +34,7 @@ class CalendarRenderer {
     yearText.setAttribute("dominant-baseline", "middle");
     yearText.setAttribute("fill", this.colors.text);
     yearText.setAttribute("font-size", "24");
-    yearText.textContent = this.currentSegment.year.toString();
+    yearText.textContent = this.currentYear.toString();
     this.calendarGroup.appendChild(yearText);
   }
 
@@ -439,9 +439,11 @@ class CalendarRenderer {
   setCurrentView(view, segment) {
     this.currentView = view;
     this.currentSegment = segment;
+    this.currentYear = segment.year;
   }
 
   drawCurrentView() {
+    // Clear previous content
     while (this.calendarGroup.firstChild) {
       this.calendarGroup.removeChild(this.calendarGroup.firstChild);
     }
@@ -454,7 +456,7 @@ class CalendarRenderer {
         this.drawMonthView(this.currentSegment);
         break;
       case 'week':
-        this.drawWeekView(this.currentSegment, this.selectedDayInWeek);
+        this.drawWeekView(this.currentSegment);
         break;
       case 'day':
         this.drawDayView(this.currentSegment);

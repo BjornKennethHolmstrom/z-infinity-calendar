@@ -23,6 +23,11 @@ class ZInfinityCalendar {
     this.lastZoomTime = 0; // Initialize lastZoomTime
     this.zoomDelay = 300; // 300 milliseconds delay between zoom actions
 
+    this.lastTouchY = 0;
+    this.touchStartDistance = 0;
+    this.isTimeZooming = false;
+    this.hoveredSegment = null;
+
     this.initEventListeners();
 
     this.eventManager = new EventManager();

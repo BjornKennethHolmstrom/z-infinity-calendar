@@ -49,7 +49,7 @@ class ZInfinityCalendar {
     this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     this.svg.setAttribute("width", "100%");
     this.svg.setAttribute("height", "100%");
-    this.svg.setAttribute("viewBox", "0 0 1000 1000");
+    this.svg.setAttribute("viewBox", "800 -32 1000 1000");
     this.container.appendChild(this.svg);
 
     // Create a group for the entire calendar
@@ -99,16 +99,16 @@ class ZInfinityCalendar {
   }
 
   handleKeyDown(event) {
-    if (this.hoveredSegment !== null) {
-      switch (event.key) {
-        case 'z':
+    switch (event.key) {
+      case 'z':
+        if (this.hoveredSegment !== null) {
           this.zoomInTimeView(this.hoveredSegment);
-          break;
-        case 'x':
-        case 'Escape':
-          this.zoomOutTimeView();
-          break;
-      }
+        }
+        break;
+      case 'x':
+      case 'Escape':
+        this.zoomOutTimeView();
+        break;
     }
   }
 
@@ -119,11 +119,7 @@ class ZInfinityCalendar {
   }
 
   handleMouseMove(event) {
-    const rect = this.svg.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / this.zoomLevel - this.panX;
-    const y = (event.clientY - rect.top) / this.zoomLevel - this.panY;
-    
-    const newHoveredSegment = this.getSegmentFromPosition(x, y);
+    const newHoveredSegment = this.getSegmentFromPosition(event.clientX, event.clientY);
     if (newHoveredSegment !== this.hoveredSegment) {
       this.hoveredSegment = newHoveredSegment;
       this.renderer.setHoveredSegment(this.hoveredSegment);
@@ -176,28 +172,19 @@ class ZInfinityCalendar {
     if (this.isTimeZooming && event.touches.length === 2) {
       const touch1 = event.touches[0];
       const touch2 = event.touches[1];
-      const currentDistance = Math.hypot(
-        touch1.clientX - touch2.clientX,
-        touch1.clientY - touch2.clientY
-      );
+      const currentTouchY = (touch1.clientY + touch2.clientY) / 2;
       
-      const centerX = (touch1.clientX + touch2.clientX) / 2;
-      const centerY = (touch1.clientY + touch2.clientY) / 2;
-      const rect = this.svg.getBoundingClientRect();
-      const x = centerX - rect.left;
-      const y = centerY - rect.top;
-      
-      const segment = this.getSegmentFromPosition(x, y);
-      
-      if (segment !== null) {
-        const currentTouchY = (touch1.clientY + touch2.clientY) / 2;
-        if (currentTouchY < this.lastTouchY) {
+      if (currentTouchY < this.lastTouchY) {
+        const centerX = (touch1.clientX + touch2.clientX) / 2;
+        const centerY = (touch1.clientY + touch2.clientY) / 2;
+        const segment = this.getSegmentFromPosition(centerX, centerY);
+        if (segment !== null) {
           this.zoomInTimeView(segment);
-        } else if (currentTouchY > this.lastTouchY) {
-          this.zoomOutTimeView();
         }
-        this.lastTouchY = currentTouchY;
+      } else if (currentTouchY > this.lastTouchY) {
+        this.zoomOutTimeView();
       }
+      this.lastTouchY = currentTouchY;
     }
   }
 
@@ -220,7 +207,35 @@ class ZInfinityCalendar {
     if (currentViewIndex > 0) {
       const prevView = this.zoomLevels[currentViewIndex - 1];
       this.currentView = prevView;
-      this.updateCurrentSegment();
+      
+      switch (this.currentView) {
+        case 'year':
+          this.currentSegment = { year: this.year };
+          break;
+        case 'month':
+          this.currentSegment = { 
+            year: this.year, 
+            month: this.currentSegment.date ? this.currentSegment.date.getMonth() : 0
+          };
+          break;
+        case 'week':
+          const weekStart = new Date(this.currentSegment.date || this.year, this.currentSegment.month || 0, 1);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+          this.currentSegment = {
+            year: this.year,
+            month: weekStart.getMonth(),
+            week: this.getWeekNumber(weekStart) - 1,
+            date: weekStart
+          };
+          break;
+        case 'day':
+          this.currentSegment = {
+            ...this.currentSegment,
+            day: this.currentSegment.date ? this.currentSegment.date.getDay() : 0
+          };
+          break;
+      }
+      
       this.drawCurrentView();
     }
   }
@@ -251,7 +266,11 @@ class ZInfinityCalendar {
     }
   }
 
-  getSegmentFromPosition(x, y) {
+  getSegmentFromPosition(clientX, clientY) {
+    const rect = this.svg.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
     const centerX = this.svg.viewBox.baseVal.width / 2;
     const centerY = this.svg.viewBox.baseVal.height / 2;
     const outerRadius = Math.min(centerX, centerY) - 10;
@@ -294,12 +313,8 @@ class ZInfinityCalendar {
     const segment = this.getSegmentFromPosition(x, y);
     if (segment !== null) {
       this.zoomIn(segment);
-      // After zooming in, center the view on the clicked position
-      const centerX = this.svg.viewBox.baseVal.width / 2;
-      const centerY = this.svg.viewBox.baseVal.height / 2;
-      this.panX += centerX - x;
-      this.panY += centerY - y;
-      this.updateTransform();
+      // Remove the centering logic, as it's causing the jumping effect
+      this.drawCurrentView();
     }
   }
 

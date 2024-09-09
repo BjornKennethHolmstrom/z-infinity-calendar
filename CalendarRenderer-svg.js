@@ -123,10 +123,10 @@ class CalendarRenderer {
     // Add week range in the center
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 6);
-
+    
     const dateRangeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    dateRangeText.setAttribute("x", centerX);
-    dateRangeText.setAttribute("y", centerY - 15);
+    dateRangeText.setAttribute("x", 500);
+    dateRangeText.setAttribute("y", 485);
     dateRangeText.setAttribute("text-anchor", "middle");
     dateRangeText.setAttribute("dominant-baseline", "middle");
     dateRangeText.setAttribute("fill", this.colors.text);
@@ -134,10 +134,11 @@ class CalendarRenderer {
     dateRangeText.textContent = `${this.formatDate(startDate)} to ${this.formatDate(endDate)}`;
     this.calendarGroup.appendChild(dateRangeText);
 
-    const weekNumber = this.getWeekNumber(startDate);
+    // Calculate and display the week number
+    const weekNumber = currentSegment.week + 1; // Convert back to 1-based index for display
     const weekNumberText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    weekNumberText.setAttribute("x", centerX);
-    weekNumberText.setAttribute("y", centerY + 15);
+    weekNumberText.setAttribute("x", 500);
+    weekNumberText.setAttribute("y", 515);
     weekNumberText.setAttribute("text-anchor", "middle");
     weekNumberText.setAttribute("dominant-baseline", "middle");
     weekNumberText.setAttribute("fill", this.colors.text);

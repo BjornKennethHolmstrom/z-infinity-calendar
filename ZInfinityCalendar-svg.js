@@ -246,12 +246,20 @@ class ZInfinityCalendar {
           this.currentSegment = { year: this.currentYear };
           break;
         case 'month':
-          this.currentSegment = { 
-            year: this.currentYear, 
-            month: this.currentSegment.date ? this.currentSegment.date.getMonth() : 0
-          };
+          if (!this.currentSegment.month) {
+            // Set the month based on the current date or previous segment
+            if (this.currentSegment.date) {
+              this.currentSegment.month = this.currentSegment.date.getMonth();
+            } else if (this.currentSegment.week) {
+              const startDate = this.getStartOfWeek(this.currentSegment.week);
+              this.currentSegment.month = startDate.getMonth();
+            } else {
+              this.currentSegment.month = 0; // Default to January if undefined
+            }
+          }
           break;
         case 'week':
+          // Handle week segment
           const weekStart = new Date(this.currentSegment.date || this.currentYear, this.currentSegment.month || 0, 1);
           weekStart.setDate(weekStart.getDate() - weekStart.getDay());
           this.currentSegment = {
@@ -279,12 +287,17 @@ class ZInfinityCalendar {
         this.currentSegment = { year: this.currentYear };
         break;
       case 'month':
-        this.currentSegment = { 
-          year: this.currentYear,
-          month: segment
-        };
+        if (segment) {
+          this.currentSegment = { 
+            year: this.currentYear, 
+            month: segment 
+          };
+        } else if (!this.currentSegment.month) {
+          this.currentSegment.month = 0; // Default to January
+        }
         break;
       case 'week':
+        // Preserve month if available
         const weekStart = this.getStartOfWeek(segment);
         this.currentSegment = {
           year: this.currentYear,
@@ -298,7 +311,7 @@ class ZInfinityCalendar {
         if (this.currentSegment.week !== undefined) {
           const weekStart = this.getStartOfWeek(this.currentSegment.week);
           dayDate = new Date(weekStart);
-          dayDate.setDate(dayDate.getDate() + segment);
+          dayDate.setDate(weekStart.getDate() + segment);
         } else {
           dayDate = new Date(this.currentYear, this.currentSegment.month, segment + 1);
         }

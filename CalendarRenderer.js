@@ -108,16 +108,19 @@ class CalendarRenderer {
 
     const startDate = this.getStartOfWeek(this.currentYear, currentSegment.week + 1);
 
-    // Adjust the starting angle to shift the days clockwise
-    const angleOffset = Math.PI / 7; // Shift by 1/7 of a full circle
+    // Adjust the starting angle to shift the days counter-clockwise
+    const angleOffset = -Math.PI / 7; // Shift by -1/7 of a full circle
 
     this.drawSegments(7, (index, startAngle, endAngle) => {
       // Apply the angle offset
       const adjustedStartAngle = startAngle + angleOffset;
       const adjustedEndAngle = endAngle + angleOffset;
 
+      // No need to adjust the index anymore
+      const adjustedIndex = index;
+
       this.drawWeekDaySegment(
-        index,
+        adjustedIndex,
         adjustedStartAngle,
         adjustedEndAngle,
         startDate,

@@ -482,7 +482,8 @@ class ZInfinityCalendar {
           break;
         case 'week':
           totalSegments = 7;
-          adjustedAngle = (angle - 2* Math.PI / 7 + 2 * Math.PI) % (2 * Math.PI);
+          // Adjust the angle for the week view to match the drawing offset
+          adjustedAngle = (angle - 7* Math.PI / 7 + Math.PI) % (2 * Math.PI);
           break;
         case 'day':
           totalSegments = 24;

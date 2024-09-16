@@ -10,7 +10,7 @@ class CalendarRenderer {
     this.getStartOfWeek = getStartOfWeek;
     this.eventManager = eventManager;
     this.hoveredSegment = null;
-    this.dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    this.dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     this.monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   }
 
@@ -107,7 +107,7 @@ class CalendarRenderer {
       return;
     }
 
-    const startDate = this.getStartOfWeek(this.currentYear, currentSegment.week);
+    const startDate = this.getStartOfWeek(this.currentYear, currentSegment.week + 1);
 
     this.drawSegments(7, (index, startAngle, endAngle) => {
       this.drawWeekDaySegment(index, startAngle, endAngle, startDate, centerX, centerY, outerRadius, innerRadius);

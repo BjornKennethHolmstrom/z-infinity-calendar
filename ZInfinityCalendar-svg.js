@@ -231,7 +231,7 @@ initEventListeners() {
           break;
         case 'day':
           if (prevView === 'week') {
-            const startOfWeek = this.getStartOfWeek(this.currentYear, this.currentSegment.week);
+            const startOfWeek = this.getStartOfWeek(this.currentYear, this.currentSegment.week + 1);
             const selectedDate = new Date(startOfWeek);
             selectedDate.setDate(startOfWeek.getDate() + segment);
             this.currentSegment = {
@@ -239,7 +239,6 @@ initEventListeners() {
               day: segment,
               date: selectedDate
             };
-            this.selectedDayInWeek = segment;
           } else if (prevView === 'month') {
             const clickedDate = new Date(this.currentYear, this.currentSegment.month, segment + 1);
             this.currentSegment = {
@@ -308,15 +307,15 @@ initEventListeners() {
         case 'week':
           if (prevSegment.date) {
             const weekStart = new Date(prevSegment.date);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Set to Sunday
+            weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Set to Monday
             this.currentSegment = {
               year: this.currentYear,
               month: weekStart.getMonth(),
-              week: this.getWeekNumber(weekStart),
+              week: this.getWeekNumber(weekStart) - 1, // Adjust to 0-based index
               date: weekStart
             };
           } else if (prevSegment.week !== undefined) {
-            const weekStart = this.getStartOfWeek(this.currentYear, prevSegment.week);
+            const weekStart = this.getStartOfWeek(this.currentYear, prevSegment.week + 1);
             this.currentSegment = {
               year: this.currentYear,
               month: weekStart.getMonth(),
@@ -522,14 +521,15 @@ initEventListeners() {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
 
   getStartOfWeek(year, week) {
-    const jan4 = new Date(year, 0, 4);
-    const firstMonday = new Date(jan4.getTime() - ((jan4.getDay() + 6) % 7) * 86400000);
-    return new Date(firstMonday.getTime() + (week * 7) * 86400000);
+    const firstDayOfYear = new Date(year, 0, 1);
+    const daysToFirstMonday = (8 - firstDayOfYear.getDay()) % 7;
+    const firstMonday = new Date(year, 0, 1 + daysToFirstMonday);
+    return new Date(firstMonday.getTime() + ((week - 1) * 7) * 86400000);
   }
 
   // Placeholder for other methods (to be implemented later)

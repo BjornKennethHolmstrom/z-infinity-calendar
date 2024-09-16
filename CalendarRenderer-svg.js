@@ -114,10 +114,15 @@ class CalendarRenderer {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
-    const startDate = this.getStartOfWeek(this.year, currentSegment.week);
+    if (!currentSegment || typeof currentSegment.week === 'undefined') {
+      console.error('Invalid currentSegment in drawWeekView:', currentSegment);
+      return;
+    }
+
+    const startDate = this.getStartOfWeek(this.currentYear, currentSegment.week);
 
     this.drawSegments(7, (index, startAngle, endAngle) => {
-      this.drawWeekDaySegment(index, startAngle, endAngle, currentSegment.date, selectedDayInWeek);
+      this.drawWeekDaySegment(index, startAngle, endAngle, startDate, selectedDayInWeek);
     });
 
     // Add week range in the center
@@ -125,8 +130,8 @@ class CalendarRenderer {
     endDate.setDate(endDate.getDate() + 6);
     
     const dateRangeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    dateRangeText.setAttribute("x", 500);
-    dateRangeText.setAttribute("y", 485);
+    dateRangeText.setAttribute("x", centerX);
+    dateRangeText.setAttribute("y", centerY - 15);
     dateRangeText.setAttribute("text-anchor", "middle");
     dateRangeText.setAttribute("dominant-baseline", "middle");
     dateRangeText.setAttribute("fill", this.colors.text);
@@ -137,8 +142,8 @@ class CalendarRenderer {
     // Calculate and display the week number
     const weekNumber = currentSegment.week + 1; // Convert back to 1-based index for display
     const weekNumberText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    weekNumberText.setAttribute("x", 500);
-    weekNumberText.setAttribute("y", 515);
+    weekNumberText.setAttribute("x", centerX);
+    weekNumberText.setAttribute("y", centerY + 15);
     weekNumberText.setAttribute("text-anchor", "middle");
     weekNumberText.setAttribute("dominant-baseline", "middle");
     weekNumberText.setAttribute("fill", this.colors.text);
@@ -335,6 +340,9 @@ class CalendarRenderer {
     const labelX = centerX + labelRadius * Math.cos(labelAngle);
     const labelY = centerY + labelRadius * Math.sin(labelAngle);
 
+    const currentDate = new Date(startDate);
+    currentDate.setDate(startDate.getDate() + index);
+
     const dayText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     dayText.setAttribute("x", labelX);
     dayText.setAttribute("y", labelY - 10);
@@ -342,11 +350,9 @@ class CalendarRenderer {
     dayText.setAttribute("dominant-baseline", "middle");
     dayText.setAttribute("fill", this.colors.text);
     dayText.setAttribute("font-size", "12");
-    dayText.textContent = this.dayNames[index];
+    dayText.textContent = this.dayNames[currentDate.getDay()];
     this.calendarGroup.appendChild(dayText);
 
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + index);
     const dateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     dateText.setAttribute("x", labelX);
     dateText.setAttribute("y", labelY + 10);
@@ -354,7 +360,7 @@ class CalendarRenderer {
     dateText.setAttribute("dominant-baseline", "middle");
     dateText.setAttribute("fill", this.colors.text);
     dateText.setAttribute("font-size", "10");
-    dateText.textContent = this.formatDate(date);
+    dateText.textContent = currentDate.getDate().toString();
     this.calendarGroup.appendChild(dateText);
   }
 

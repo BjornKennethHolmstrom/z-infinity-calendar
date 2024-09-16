@@ -19,7 +19,7 @@ class CalendarRenderer {
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
     this.drawSegments(12, (index, startAngle, endAngle) => {
-      this.drawMonthSegment(index, startAngle, endAngle);
+      this.drawMonthSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius);
     });
 
     // Add year display in the center
@@ -83,7 +83,7 @@ class CalendarRenderer {
     const daysInMonth = new Date(currentSegment.year, currentSegment.month + 1, 0).getDate();
 
     this.drawSegments(daysInMonth, (index, startAngle, endAngle) => {
-      this.drawDaySegment(index, startAngle, endAngle, currentSegment.month);
+      this.drawDaySegment(index, startAngle, endAngle, currentSegment.month, centerX, centerY, outerRadius, innerRadius);
     });
 
     // Add month name and year in the center
@@ -111,7 +111,7 @@ class CalendarRenderer {
     const selectedDayInWeek = currentSegment.day || 0; // Default to Sunday if not specified
 
     this.drawSegments(7, (index, startAngle, endAngle) => {
-      this.drawWeekDaySegment(index, startAngle, endAngle, startDate, selectedDayInWeek);
+      this.drawWeekDaySegment(index, startAngle, endAngle, startDate, selectedDayInWeek, centerX, centerY, outerRadius, innerRadius);
     });
 
     // Add week range in the center
@@ -146,7 +146,7 @@ class CalendarRenderer {
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
     this.drawSegments(24, (index, startAngle, endAngle) => {
-      this.drawHourSegment(index, startAngle, endAngle);
+      this.drawHourSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius);
     });
 
     if (currentSegment && currentSegment.date) {
@@ -218,7 +218,7 @@ class CalendarRenderer {
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
     this.drawSegments(60, (index, startAngle, endAngle) => {
-      this.drawMinuteSegment(index, startAngle, endAngle);
+      this.drawMinuteSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius);
     });
 
     // Display hour and date in the center
@@ -248,12 +248,7 @@ class CalendarRenderer {
     // this.displayHourEvents(currentSegment.hour);
   }
 
-  drawMonthSegment(index, startAngle, endAngle) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
+  drawMonthSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius) {
     const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
     path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
     path.setAttribute("stroke", this.colors.border);
@@ -277,12 +272,7 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(monthText);
   }
 
-  drawDaySegment(index, startAngle, endAngle, month) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
+  drawDaySegment(index, startAngle, endAngle, month, centerX, centerY, outerRadius, innerRadius) {
     const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
     path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
     path.setAttribute("stroke", this.colors.border);
@@ -306,12 +296,7 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(dayText);
   }
 
-  drawWeekDaySegment(index, startAngle, endAngle, startDate, selectedDayInWeek) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
+  drawWeekDaySegment(index, startAngle, endAngle, startDate, selectedDayInWeek, centerX, centerY, outerRadius, innerRadius) {
     const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
     path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : 
                              (index === selectedDayInWeek ? this.colors.highlight : this.colors.segment));
@@ -349,12 +334,7 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(dateText);
   }
 
-  drawHourSegment(index, startAngle, endAngle) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
+  drawHourSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius) {
     const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
     path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
     path.setAttribute("stroke", this.colors.border);
@@ -378,12 +358,7 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(hourText);
   }
 
-  drawMinuteSegment(index, startAngle, endAngle) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
+  drawMinuteSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius) {
     const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
     path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
     path.setAttribute("stroke", this.colors.border);

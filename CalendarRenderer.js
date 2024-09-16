@@ -10,7 +10,7 @@ class CalendarRenderer {
     this.getStartOfWeek = getStartOfWeek;
     this.eventManager = eventManager;
     this.hoveredSegment = null;
-    this.dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    this.dayNames = ['Sun','Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     this.monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   }
 
@@ -138,7 +138,7 @@ class CalendarRenderer {
     dateRangeText.setAttribute("text-anchor", "middle");
     dateRangeText.setAttribute("dominant-baseline", "middle");
     dateRangeText.setAttribute("fill", this.colors.text);
-    dateRangeText.setAttribute("font-size", "16");
+    dateRangeText.setAttribute("font-size", "20");
     dateRangeText.textContent = `${this.formatDate(startDate)} to ${this.formatDate(endDate)}`;
     this.calendarGroup.appendChild(dateRangeText);
 
@@ -150,7 +150,7 @@ class CalendarRenderer {
     weekNumberText.setAttribute("text-anchor", "middle");
     weekNumberText.setAttribute("dominant-baseline", "middle");
     weekNumberText.setAttribute("fill", this.colors.text);
-    weekNumberText.setAttribute("font-size", "14");
+    weekNumberText.setAttribute("font-size", "20");
     weekNumberText.textContent = `Week ${weekNumber}`;
     this.calendarGroup.appendChild(weekNumberText);
   }
@@ -164,23 +164,13 @@ class CalendarRenderer {
     });
 
     if (currentSegment && currentSegment.date) {
-      const dateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      dateText.setAttribute("x", centerX);
-      dateText.setAttribute("y", centerY - 15);
-      dateText.setAttribute("text-anchor", "middle");
-      dateText.setAttribute("dominant-baseline", "middle");
-      dateText.setAttribute("fill", this.colors.text);
-      dateText.setAttribute("font-size", "20");
-      dateText.textContent = this.dayNames[currentSegment.date.getDay()];
-      this.calendarGroup.appendChild(dateText);
-
       const fullDateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
       fullDateText.setAttribute("x", centerX);
-      fullDateText.setAttribute("y", centerY + 15);
+      fullDateText.setAttribute("y", centerY);
       fullDateText.setAttribute("text-anchor", "middle");
       fullDateText.setAttribute("dominant-baseline", "middle");
       fullDateText.setAttribute("fill", this.colors.text);
-      fullDateText.setAttribute("font-size", "16");
+      fullDateText.setAttribute("font-size", "24");
       fullDateText.textContent = currentSegment.date.toDateString();
       this.calendarGroup.appendChild(fullDateText);
     }
@@ -221,7 +211,7 @@ class CalendarRenderer {
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "middle");
       text.setAttribute("fill", "#ffffff");
-      text.setAttribute("font-size", "10");
+      text.setAttribute("font-size", "20");
       text.textContent = event.title;
       this.calendarGroup.appendChild(text);
     });
@@ -243,7 +233,7 @@ class CalendarRenderer {
       dateText.setAttribute("text-anchor", "middle");
       dateText.setAttribute("dominant-baseline", "middle");
       dateText.setAttribute("fill", this.colors.text);
-      dateText.setAttribute("font-size", "16");
+      dateText.setAttribute("font-size", "20");
       dateText.textContent = currentSegment.date.toDateString();
       this.calendarGroup.appendChild(dateText);
 
@@ -253,7 +243,7 @@ class CalendarRenderer {
       hourText.setAttribute("text-anchor", "middle");
       hourText.setAttribute("dominant-baseline", "middle");
       hourText.setAttribute("fill", this.colors.text);
-      hourText.setAttribute("font-size", "14");
+      hourText.setAttribute("font-size", "20");
       hourText.textContent = `Hour ${currentSegment.date.getHours()}`;
       this.calendarGroup.appendChild(hourText);
     }

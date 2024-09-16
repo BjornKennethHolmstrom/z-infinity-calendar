@@ -115,9 +115,10 @@ class ZInfinityCalendar {
   }
 
   handleMouseMove(event) {
-    const rect = this.svg.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const svgRect = this.svg.getBoundingClientRect();
+    const scale = svgRect.width / 1000; // 1000 is the viewBox width
+    const x = (event.clientX - svgRect.left) / scale;
+    const y = (event.clientY - svgRect.top) / scale;
     const newHoveredSegment = this.getSegmentFromPosition(x, y);
     if (newHoveredSegment !== this.hoveredSegment) {
       this.hoveredSegment = newHoveredSegment;
@@ -131,9 +132,10 @@ class ZInfinityCalendar {
   }
 
   handleClick(event) {
-    const rect = this.svg.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const svgRect = this.svg.getBoundingClientRect();
+    const scale = svgRect.width / 1000; // 1000 is the viewBox width
+    const x = (event.clientX - svgRect.left) / scale;
+    const y = (event.clientY - svgRect.top) / scale;
     const segment = this.getSegmentFromPosition(x, y);
     if (segment !== null) {
       this.zoomInToPosition(x, y);
@@ -162,11 +164,11 @@ class ZInfinityCalendar {
   }
 
   handleTouchMove(event) {
-    // Check if the touch is interacting with the calendar
-    const rect = this.svg.getBoundingClientRect();
+    const svgRect = this.svg.getBoundingClientRect();
+    const scale = svgRect.width / 1000; // 1000 is the viewBox width
     const touch = event.touches[0];
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    const x = (touch.clientX - svgRect.left) / scale;
+    const y = (touch.clientY - svgRect.top) / scale;
     
     if (this.getSegmentFromPosition(x, y) !== null) {
       event.preventDefault();
@@ -436,19 +438,21 @@ class ZInfinityCalendar {
 
   getSegmentFromPosition(x, y) {
     const svgRect = this.svg.getBoundingClientRect();
-    const centerX = svgRect.width / 2;
-    const centerY = svgRect.height / 2;
+    const viewBoxWidth = 1000; // From the SVG viewBox
+    const viewBoxHeight = 1000;
+    const scale = svgRect.width / viewBoxWidth;
+
+    // Convert screen coordinates to SVG viewBox coordinates
+    const svgX = (x / scale);
+    const svgY = (y / scale);
+
+    const centerX = viewBoxWidth / 2;
+    const centerY = viewBoxHeight / 2;
     const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
-    // Transform mouse coordinates to SVG coordinate system
-    const svgPoint = this.svg.createSVGPoint();
-    svgPoint.x = x;
-    svgPoint.y = y;
-    const transformedPoint = svgPoint.matrixTransform(this.svg.getScreenCTM().inverse());
-
-    const dx = transformedPoint.x - centerX;
-    const dy = transformedPoint.y - centerY;
+    const dx = svgX - centerX;
+    const dy = svgY - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance <= outerRadius && distance >= innerRadius) {

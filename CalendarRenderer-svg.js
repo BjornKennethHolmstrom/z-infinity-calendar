@@ -99,7 +99,6 @@ class CalendarRenderer {
   }
 
   drawWeekView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
-
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
     if (!currentSegment || typeof currentSegment.week === 'undefined') {
@@ -109,8 +108,24 @@ class CalendarRenderer {
 
     const startDate = this.getStartOfWeek(this.currentYear, currentSegment.week + 1);
 
+    // Adjust the starting angle to shift the days clockwise
+    const angleOffset = Math.PI / 7; // Shift by 1/7 of a full circle
+
     this.drawSegments(7, (index, startAngle, endAngle) => {
-      this.drawWeekDaySegment(index, startAngle, endAngle, startDate, centerX, centerY, outerRadius, innerRadius);
+      // Apply the angle offset
+      const adjustedStartAngle = startAngle + angleOffset;
+      const adjustedEndAngle = endAngle + angleOffset;
+
+      this.drawWeekDaySegment(
+        index,
+        adjustedStartAngle,
+        adjustedEndAngle,
+        startDate,
+        centerX,
+        centerY,
+        outerRadius,
+        innerRadius
+      );
     });
 
     // Add week range in the center
@@ -383,9 +398,10 @@ class CalendarRenderer {
   }
 
   drawSegments(totalSegments, drawSegmentFunc) {
+    const angleOffset = this.currentView === 'week' ? Math.PI / 7 : 0;
     for (let i = 0; i < totalSegments; i++) {
-      const startAngle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((i + 1) / totalSegments) * 2 * Math.PI - Math.PI / 2;
+      const startAngle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2 + angleOffset;
+      const endAngle = ((i + 1) / totalSegments) * 2 * Math.PI - Math.PI / 2 + angleOffset;
       drawSegmentFunc(i, startAngle, endAngle);
     }
   }

@@ -441,9 +441,11 @@ initEventListeners() {
     if (distance <= outerRadius && distance >= innerRadius) {
       let angle = Math.atan2(dy, dx);
       if (angle < 0) angle += 2 * Math.PI;
-      angle = (angle + Math.PI / 2) % (2 * Math.PI);
+      angle = (angle + Math.PI / 2) % (2 * Math.PI);   
 
       let totalSegments;
+      let adjustedAngle = angle;
+
       switch (this.currentView) {
         case 'year':
           totalSegments = 12;
@@ -453,6 +455,7 @@ initEventListeners() {
           break;
         case 'week':
           totalSegments = 7;
+          adjustedAngle = (angle - 2* Math.PI / 7 + 2 * Math.PI) % (2 * Math.PI);
           break;
         case 'day':
           totalSegments = 24;
@@ -464,7 +467,7 @@ initEventListeners() {
           return null;
       }
 
-      return Math.floor((angle / (2 * Math.PI)) * totalSegments);
+      return Math.floor((adjustedAngle / (2 * Math.PI)) * totalSegments);
     }
 
     return null;

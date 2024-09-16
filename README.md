@@ -4,11 +4,20 @@ Z∞ (Z-Infinity) is an innovative, zoomable circular calendar implementation. I
 
 ## Features
 
+### Current
 - Circular calendar visualization
 - Zoomable interface from year to hour view
-- Smooth animations between zoom levels
-- Event display across all zoom levels
 - Keyboard and mouse controls for easy navigation
+- SVG-based rendering for improved performance and scalability
+- Consistent week calculation starting on Monday
+
+### Upcoming
+
+- Event display across all zoom levels
+- Event CRUD operations
+- Linkable editing (drag and drop) of event borders
+- Drag and drop of events
+- Smooth animations between zoom levels
 
 ## Getting Started
 
@@ -27,6 +36,7 @@ Z∞ (Z-Infinity) is an innovative, zoomable circular calendar implementation. I
 
 ## Usage
 
+- Hover over segments to highlight them
 - Click on a segment to zoom in (year → month → week → day → hour)
 - Press 'Esc' key to zoom out
 - Use the 'z' key to zoom in and 'x' key to zoom out

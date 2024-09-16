@@ -1,365 +1,474 @@
-// CalendarRenderer.js
-
 class CalendarRenderer {
-  constructor(ctx, canvas, colors, innerRadiusRatio, year, getMonthName, getStartOfWeek, eventManager) {
-    this.ctx = ctx;
-    this.canvas = canvas;
+  constructor(svg, calendarGroup, colors, innerRadiusRatio, currentYear, getMonthName, getStartOfWeek, eventManager) {
+    this.svg = svg;
+    this.calendarGroup = calendarGroup;
     this.colors = colors;
     this.innerRadiusRatio = innerRadiusRatio;
-    this.year = year;
+    this.currentYear = currentYear;
+    this.currentSegment = { year: this.currentYear };
     this.getMonthName = getMonthName;
     this.getStartOfWeek = getStartOfWeek;
     this.eventManager = eventManager;
+    this.hoveredSegment = null;
+    this.dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    this.monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  }
+
+  drawYearView(centerX, centerY, outerRadius, innerRadius) {
+
+    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
+
+    this.drawSegments(12, (index, startAngle, endAngle) => {
+      this.drawMonthSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius);
+    });
+
+    // Add year display in the center
+    const yearText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    yearText.setAttribute("x", centerX);
+    yearText.setAttribute("y", centerY);
+    yearText.setAttribute("text-anchor", "middle");
+    yearText.setAttribute("dominant-baseline", "middle");
+    yearText.setAttribute("fill", this.colors.text);
+    yearText.setAttribute("font-size", "24");
+    yearText.textContent = this.currentYear.toString();
+    this.calendarGroup.appendChild(yearText);
   }
 
   drawBackground(centerX, centerY, outerRadius, innerRadius) {
-    this.ctx.fillStyle = this.colors.background;
-    this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
-    this.ctx.fill();
-    
-    // Clear the inner circle
-    this.ctx.globalCompositeOperation = 'destination-out';
-    this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
-    this.ctx.fill();
-    this.ctx.globalCompositeOperation = 'source-over';
+    const background = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    background.setAttribute("cx", centerX);
+    background.setAttribute("cy", centerY);
+    background.setAttribute("r", outerRadius);
+    background.setAttribute("fill", this.colors.background);
+    this.calendarGroup.appendChild(background);
+
+    const innerCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    innerCircle.setAttribute("cx", centerX);
+    innerCircle.setAttribute("cy", centerY);
+    innerCircle.setAttribute("r", innerRadius);
+    innerCircle.setAttribute("fill", "white");
+    this.calendarGroup.appendChild(innerCircle);
   }
 
-  drawYearView() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    const centerX = this.canvas.width / 2;
-    const centerY = this.canvas.height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 10;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
+  createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle) {
+    const outerStartX = centerX + outerRadius * Math.cos(startAngle);
+    const outerStartY = centerY + outerRadius * Math.sin(startAngle);
+    const outerEndX = centerX + outerRadius * Math.cos(endAngle);
+    const outerEndY = centerY + outerRadius * Math.sin(endAngle);
+
+    const innerStartX = centerX + innerRadius * Math.cos(endAngle);
+    const innerStartY = centerY + innerRadius * Math.sin(endAngle);
+    const innerEndX = centerX + innerRadius * Math.cos(startAngle);
+    const innerEndY = centerY + innerRadius * Math.sin(startAngle);
+
+    const largeArcFlag = endAngle - startAngle <= Math.PI ? "0" : "1";
+
+    const d = [
+      "M", outerStartX, outerStartY,
+      "A", outerRadius, outerRadius, 0, largeArcFlag, 1, outerEndX, outerEndY,
+      "L", innerStartX, innerStartY,
+      "A", innerRadius, innerRadius, 0, largeArcFlag, 0, innerEndX, innerEndY,
+      "Z"
+    ].join(" ");
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    return path;
+  }
+
+  drawMonthView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
-    // Draw month segments
-    for (let i = 0; i < 12; i++) {
-      const startAngle = (i / 12) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((i + 1) / 12) * 2 * Math.PI - Math.PI / 2;
+    const daysInMonth = new Date(currentSegment.year, currentSegment.month + 1, 0).getDate();
 
-      this.ctx.fillStyle = this.colors.segment;
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-      this.ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
-      this.ctx.closePath();
-      this.ctx.fill();
+    this.drawSegments(daysInMonth, (index, startAngle, endAngle) => {
+      this.drawDaySegment(index, startAngle, endAngle, currentSegment.month, centerX, centerY, outerRadius, innerRadius);
+    });
 
-      this.ctx.strokeStyle = this.colors.border;
-      this.ctx.stroke();
-
-      // Add month labels
-      const labelRadius = (outerRadius + innerRadius) / 2;
-      const labelAngle = (startAngle + endAngle) / 2;
-      const labelX = centerX + labelRadius * Math.cos(labelAngle);
-      const labelY = centerY + labelRadius * Math.sin(labelAngle);
-
-      this.ctx.fillStyle = this.colors.text;
-      this.ctx.font = '14px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(this.getMonthName(i), labelX, labelY);
-    }
-
-    // Add year display in the center
-    this.ctx.fillStyle = this.colors.text;
-    this.ctx.font = '24px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(this.year.toString(), centerX, centerY);
+    // Add month name and year in the center
+    const monthYearText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    monthYearText.setAttribute("x", centerX);
+    monthYearText.setAttribute("y", centerY);
+    monthYearText.setAttribute("text-anchor", "middle");
+    monthYearText.setAttribute("dominant-baseline", "middle");
+    monthYearText.setAttribute("fill", this.colors.text);
+    monthYearText.setAttribute("font-size", "20");
+    monthYearText.textContent = `${this.monthNames[currentSegment.month]}, ${currentSegment.year}`;
+    this.calendarGroup.appendChild(monthYearText);
   }
 
-  drawMonthView(currentSegment) {
-    if (!currentSegment || typeof currentSegment.month === 'undefined') {
-      console.error('Invalid currentSegment in drawMonthView:', currentSegment);
-      return;
-    }
-
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    const centerX = this.canvas.width / 2;
-    const centerY = this.canvas.height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 10;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
-    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
-
-    const currentMonth = currentSegment.month;
-    const daysInMonth = new Date(this.year, currentMonth + 1, 0).getDate();
-
-    // Draw the circular segments for each day
-    for (let i = 0; i < daysInMonth; i++) {
-      const startAngle = (i / daysInMonth) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((i + 1) / daysInMonth) * 2 * Math.PI - Math.PI / 2;
-
-      this.ctx.fillStyle = this.colors.segment;
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-      this.ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
-      this.ctx.closePath();
-      this.ctx.fill();
-
-      this.ctx.strokeStyle = this.colors.border;
-      this.ctx.stroke();
-
-      // Add day labels
-      const labelRadius = (outerRadius + innerRadius) / 2;
-      const labelAngle = (startAngle + endAngle) / 2;
-      const labelX = centerX + labelRadius * Math.cos(labelAngle);
-      const labelY = centerY + labelRadius * Math.sin(labelAngle);
-
-      this.ctx.fillStyle = this.colors.text;
-      this.ctx.font = '12px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(i + 1, labelX, labelY);
-    }
-
-    // Update the month name and year display in the center
-    this.ctx.fillStyle = this.colors.text;
-    this.ctx.font = '20px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(`${this.getMonthName(currentMonth)}, ${this.year}`, centerX, centerY);
-  }
-
-  drawWeekView(currentSegment, selectedDayInWeek) {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    const centerX = this.canvas.width / 2;
-    const centerY = this.canvas.height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 10;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
+  drawWeekView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
     if (!currentSegment || typeof currentSegment.week === 'undefined') {
       console.error('Invalid currentSegment in drawWeekView:', currentSegment);
-      return [];
+      return;
     }
 
-    const startDate = this.getStartOfWeek(this.year, currentSegment.week);
-    const weekSegments = [];
+    const startDate = this.getStartOfWeek(this.currentYear, currentSegment.week + 1);
 
-    for (let i = 0; i < 7; i++) {
-      const startAngle = (i / 7) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((i + 1) / 7) * 2 * Math.PI - Math.PI / 2;
+    // Adjust the starting angle to shift the days clockwise
+    const angleOffset = Math.PI / 7; // Shift by 1/7 of a full circle
 
-      this.ctx.fillStyle = (i === selectedDayInWeek) ? this.colors.highlight : this.colors.segment;
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-      this.ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
-      this.ctx.closePath();
-      this.ctx.fill();
+    this.drawSegments(7, (index, startAngle, endAngle) => {
+      // Apply the angle offset
+      const adjustedStartAngle = startAngle + angleOffset;
+      const adjustedEndAngle = endAngle + angleOffset;
 
-      this.ctx.strokeStyle = this.colors.border;
-      this.ctx.stroke();
-
-      // Store the path for later hit detection
-      const segment = new Path2D();
-      segment.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-      segment.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
-      segment.closePath();
-      weekSegments.push(segment);
-
-      const labelRadius = (outerRadius + innerRadius) / 2;
-      const labelAngle = (startAngle + endAngle) / 2;
-      const labelX = centerX + labelRadius * Math.cos(labelAngle);
-      const labelY = centerY + labelRadius * Math.sin(labelAngle);
-
-      this.ctx.fillStyle = this.colors.text;
-      this.ctx.font = '14px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-
-      const currentDate = new Date(startDate);
-      currentDate.setDate(startDate.getDate() + i);
-
-      // Display weekday
-      this.ctx.fillText(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][currentDate.getDay()], labelX, labelY - 10);
-
-      // Display date
-      this.ctx.font = '12px Arial';
-      this.ctx.fillText(currentDate.getDate().toString(), labelX, labelY + 10);
-    }
+      this.drawWeekDaySegment(
+        index,
+        adjustedStartAngle,
+        adjustedEndAngle,
+        startDate,
+        centerX,
+        centerY,
+        outerRadius,
+        innerRadius
+      );
+    });
 
     // Add week range in the center
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 6);
     
-    const dateRangeText = `${this.formatDate(startDate)} to ${this.formatDate(endDate)}`;
-    
-    this.ctx.fillStyle = this.colors.text;
-    this.ctx.font = '16px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(dateRangeText, centerX, centerY - 10);
+    const dateRangeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    dateRangeText.setAttribute("x", centerX);
+    dateRangeText.setAttribute("y", centerY - 15);
+    dateRangeText.setAttribute("text-anchor", "middle");
+    dateRangeText.setAttribute("dominant-baseline", "middle");
+    dateRangeText.setAttribute("fill", this.colors.text);
+    dateRangeText.setAttribute("font-size", "16");
+    dateRangeText.textContent = `${this.formatDate(startDate)} to ${this.formatDate(endDate)}`;
+    this.calendarGroup.appendChild(dateRangeText);
 
     // Calculate and display the week number
     const weekNumber = currentSegment.week + 1; // Convert back to 1-based index for display
-    this.ctx.font = '14px Arial';
-    this.ctx.fillText(`Week ${weekNumber}`, centerX, centerY + 15);
-
-    return weekSegments;
+    const weekNumberText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    weekNumberText.setAttribute("x", centerX);
+    weekNumberText.setAttribute("y", centerY + 15);
+    weekNumberText.setAttribute("text-anchor", "middle");
+    weekNumberText.setAttribute("dominant-baseline", "middle");
+    weekNumberText.setAttribute("fill", this.colors.text);
+    weekNumberText.setAttribute("font-size", "14");
+    weekNumberText.textContent = `Week ${weekNumber}`;
+    this.calendarGroup.appendChild(weekNumberText);
   }
 
-  formatDate(date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  drawDayView(currentSegment) {
-    // Clear the canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    const centerX = this.canvas.width / 2;
-    const centerY = this.canvas.height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 10;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
+  drawDayView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
-    for (let i = 0; i < 24; i++) {
-      const startAngle = (i / 24) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((i + 1) / 24) * 2 * Math.PI - Math.PI / 2;
+    this.drawSegments(24, (index, startAngle, endAngle) => {
+      this.drawHourSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius);
+    });
 
-      this.ctx.fillStyle = this.colors.segment;
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-      this.ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
-      this.ctx.closePath();
-      this.ctx.fill();
+    if (currentSegment && currentSegment.date) {
+      const dateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      dateText.setAttribute("x", centerX);
+      dateText.setAttribute("y", centerY - 15);
+      dateText.setAttribute("text-anchor", "middle");
+      dateText.setAttribute("dominant-baseline", "middle");
+      dateText.setAttribute("fill", this.colors.text);
+      dateText.setAttribute("font-size", "20");
+      dateText.textContent = this.dayNames[currentSegment.date.getDay()];
+      this.calendarGroup.appendChild(dateText);
 
-      this.ctx.strokeStyle = this.colors.border;
-      this.ctx.stroke();
+      const fullDateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      fullDateText.setAttribute("x", centerX);
+      fullDateText.setAttribute("y", centerY + 15);
+      fullDateText.setAttribute("text-anchor", "middle");
+      fullDateText.setAttribute("dominant-baseline", "middle");
+      fullDateText.setAttribute("fill", this.colors.text);
+      fullDateText.setAttribute("font-size", "16");
+      fullDateText.textContent = currentSegment.date.toDateString();
+      this.calendarGroup.appendChild(fullDateText);
+    }
 
-      // Add hour labels
+    // Call method to display events for this day
+    this.displayDayEvents(currentSegment.date);
+  }
+
+  displayDayEvents(date) {
+    const events = this.eventManager.getEventsForDate(date);
+    if (!Array.isArray(events)) {
+      //console.warn('No events found or invalid events data for date:', date);
+      return;
+    }
+    const centerX = 500;
+    const centerY = 500;
+    const outerRadius = 490;
+    const innerRadius = outerRadius * this.innerRadiusRatio;
+
+    events.forEach((event, index) => {
+      const startAngle = (event.startDate.getHours() / 24) * 2 * Math.PI - Math.PI / 2;
+      const endAngle = (event.endDate.getHours() / 24) * 2 * Math.PI - Math.PI / 2;
+      const eventRadius = innerRadius + (outerRadius - innerRadius) * 0.8; // Place events near the outer edge
+
+      const path = this.createArcPath(centerX, centerY, eventRadius, eventRadius - 10, startAngle, endAngle);
+      path.setAttribute("fill", this.colors.event);
+      path.setAttribute("stroke", "none");
+      this.calendarGroup.appendChild(path);
+
+      // Add event title
+      const labelAngle = (startAngle + endAngle) / 2;
+      const labelX = centerX + eventRadius * Math.cos(labelAngle);
+      const labelY = centerY + eventRadius * Math.sin(labelAngle);
+
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", labelX);
+      text.setAttribute("y", labelY);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "middle");
+      text.setAttribute("fill", "#ffffff");
+      text.setAttribute("font-size", "10");
+      text.textContent = event.title;
+      this.calendarGroup.appendChild(text);
+    });
+  }
+
+  drawHourView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
+
+    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
+
+    this.drawSegments(60, (index, startAngle, endAngle) => {
+      this.drawMinuteSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius);
+    });
+
+    // Display hour and date in the center
+    if (currentSegment && currentSegment.date) {
+      const dateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      dateText.setAttribute("x", centerX);
+      dateText.setAttribute("y", centerY - 15);
+      dateText.setAttribute("text-anchor", "middle");
+      dateText.setAttribute("dominant-baseline", "middle");
+      dateText.setAttribute("fill", this.colors.text);
+      dateText.setAttribute("font-size", "16");
+      dateText.textContent = currentSegment.date.toDateString();
+      this.calendarGroup.appendChild(dateText);
+
+      const hourText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      hourText.setAttribute("x", centerX);
+      hourText.setAttribute("y", centerY + 15);
+      hourText.setAttribute("text-anchor", "middle");
+      hourText.setAttribute("dominant-baseline", "middle");
+      hourText.setAttribute("fill", this.colors.text);
+      hourText.setAttribute("font-size", "14");
+      hourText.textContent = `Hour ${currentSegment.date.getHours()}`;
+      this.calendarGroup.appendChild(hourText);
+    }
+
+    // TODO: Implement event display for this hour
+    // this.displayHourEvents(currentSegment.hour);
+  }
+
+  drawMonthSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius) {
+    const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
+    path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
+    path.setAttribute("stroke", this.colors.border);
+    path.setAttribute("data-segment", index);
+    this.calendarGroup.appendChild(path);
+
+    // Add month name label
+    const labelRadius = (outerRadius + innerRadius) / 2;
+    const labelAngle = (startAngle + endAngle) / 2;
+    const labelX = centerX + labelRadius * Math.cos(labelAngle);
+    const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+    const monthText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    monthText.setAttribute("x", labelX);
+    monthText.setAttribute("y", labelY);
+    monthText.setAttribute("text-anchor", "middle");
+    monthText.setAttribute("dominant-baseline", "middle");
+    monthText.setAttribute("fill", this.colors.text);
+    monthText.setAttribute("font-size", "14");
+    monthText.textContent = this.monthNames[index];
+    this.calendarGroup.appendChild(monthText);
+  }
+
+  drawDaySegment(index, startAngle, endAngle, month, centerX, centerY, outerRadius, innerRadius) {
+    const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
+    path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
+    path.setAttribute("stroke", this.colors.border);
+    path.setAttribute("data-segment", index);
+    this.calendarGroup.appendChild(path);
+
+    // Add day number label
+    const labelRadius = (outerRadius + innerRadius) / 2;
+    const labelAngle = (startAngle + endAngle) / 2;
+    const labelX = centerX + labelRadius * Math.cos(labelAngle);
+    const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+    const dayText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    dayText.setAttribute("x", labelX);
+    dayText.setAttribute("y", labelY);
+    dayText.setAttribute("text-anchor", "middle");
+    dayText.setAttribute("dominant-baseline", "middle");
+    dayText.setAttribute("fill", this.colors.text);
+    dayText.setAttribute("font-size", "12");
+    dayText.textContent = (index + 1).toString();
+    this.calendarGroup.appendChild(dayText);
+  }
+
+  drawWeekDaySegment(index, startAngle, endAngle, startDate, centerX, centerY, outerRadius, innerRadius) {
+    const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
+    path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
+    path.setAttribute("stroke", this.colors.border);
+    path.setAttribute("data-segment", index);
+    this.calendarGroup.appendChild(path);
+
+    // Add day name and date
+    const labelRadius = (outerRadius + innerRadius) / 2;
+    const labelAngle = (startAngle + endAngle) / 2;
+    const labelX = centerX + labelRadius * Math.cos(labelAngle);
+    const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+    const currentDate = new Date(startDate);
+    currentDate.setDate(startDate.getDate() + index);
+
+    const dayText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    dayText.setAttribute("x", labelX);
+    dayText.setAttribute("y", labelY - 10);
+    dayText.setAttribute("text-anchor", "middle");
+    dayText.setAttribute("dominant-baseline", "middle");
+    dayText.setAttribute("fill", this.colors.text);
+    dayText.setAttribute("font-size", "12");
+    dayText.textContent = this.dayNames[currentDate.getDay()];
+    this.calendarGroup.appendChild(dayText);
+
+    const dateText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    dateText.setAttribute("x", labelX);
+    dateText.setAttribute("y", labelY + 10);
+    dateText.setAttribute("text-anchor", "middle");
+    dateText.setAttribute("dominant-baseline", "middle");
+    dateText.setAttribute("fill", this.colors.text);
+    dateText.setAttribute("font-size", "10");
+    dateText.textContent = currentDate.getDate().toString();
+    this.calendarGroup.appendChild(dateText);
+  }
+
+  drawHourSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius) {
+    const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
+    path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
+    path.setAttribute("stroke", this.colors.border);
+    path.setAttribute("data-segment", index);
+    this.calendarGroup.appendChild(path);
+
+    // Add hour label
+    const labelRadius = (outerRadius + innerRadius) / 2;
+    const labelAngle = (startAngle + endAngle) / 2;
+    const labelX = centerX + labelRadius * Math.cos(labelAngle);
+    const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+    const hourText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    hourText.setAttribute("x", labelX);
+    hourText.setAttribute("y", labelY);
+    hourText.setAttribute("text-anchor", "middle");
+    hourText.setAttribute("dominant-baseline", "middle");
+    hourText.setAttribute("fill", this.colors.text);
+    hourText.setAttribute("font-size", "12");
+    hourText.textContent = `${index}:00`;
+    this.calendarGroup.appendChild(hourText);
+  }
+
+  drawMinuteSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius) {
+    const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
+    path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
+    path.setAttribute("stroke", this.colors.border);
+    path.setAttribute("data-segment", index);
+    this.calendarGroup.appendChild(path);
+
+    // Add minute label for every 5 minutes
+    if (index % 5 === 0) {
       const labelRadius = (outerRadius + innerRadius) / 2;
       const labelAngle = (startAngle + endAngle) / 2;
       const labelX = centerX + labelRadius * Math.cos(labelAngle);
       const labelY = centerY + labelRadius * Math.sin(labelAngle);
 
-      this.ctx.fillStyle = this.colors.text;
-      this.ctx.font = '12px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(`${i}:00`, labelX, labelY);
+      const minuteText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      minuteText.setAttribute("x", labelX);
+      minuteText.setAttribute("y", labelY);
+      minuteText.setAttribute("text-anchor", "middle");
+      minuteText.setAttribute("dominant-baseline", "middle");
+      minuteText.setAttribute("fill", this.colors.text);
+      minuteText.setAttribute("font-size", "12");
+      minuteText.textContent = index.toString();
+      this.calendarGroup.appendChild(minuteText);
     }
-
-    // Display date in the center
-    if (currentSegment && currentSegment.date) {
-      this.ctx.fillStyle = this.colors.text;
-      this.ctx.font = '20px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(currentSegment.date.toDateString(), centerX, centerY);
-    }
-
-    // Display events for this day
-    this.displayDayEvents(currentSegment.date);
   }
 
-  drawHourView(currentSegment) {
-    // Clear the canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    const centerX = this.canvas.width / 2;
-    const centerY = this.canvas.height / 2;
-    const outerRadius = Math.min(centerX, centerY) - 10;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
-    this.drawBackground(centerX, centerY, outerRadius, innerRadius);
-
-    // Draw 60 segments for minutes
-    for (let i = 0; i < 60; i++) {
-      const startAngle = (i / 60) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((i + 1) / 60) * 2 * Math.PI - Math.PI / 2;
-
-      this.ctx.fillStyle = this.colors.segment;
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-      this.ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
-      this.ctx.closePath();
-      this.ctx.fill();
-
-      this.ctx.strokeStyle = this.colors.border;
-      this.ctx.stroke();
-
-      // Add minute labels for every 5 minutes
-      if (i % 5 === 0) {
-        const labelRadius = (outerRadius + innerRadius) / 2;
-        const labelAngle = (startAngle + endAngle) / 2;
-        const labelX = centerX + labelRadius * Math.cos(labelAngle);
-        const labelY = centerY + labelRadius * Math.sin(labelAngle);
-
-        this.ctx.fillStyle = this.colors.text;
-        this.ctx.font = '12px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`${i}`, labelX, labelY);
-      }
+  drawSegments(totalSegments, drawSegmentFunc) {
+    const angleOffset = this.currentView === 'week' ? Math.PI / 7 : 0;
+    for (let i = 0; i < totalSegments; i++) {
+      const startAngle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2 + angleOffset;
+      const endAngle = ((i + 1) / totalSegments) * 2 * Math.PI - Math.PI / 2 + angleOffset;
+      drawSegmentFunc(i, startAngle, endAngle);
     }
-
-    // Use the date provided in currentSegment
-    if (currentSegment && currentSegment.date) {
-      const currentDate = currentSegment.date;
-
-      // Add hour and date in the center
-      this.ctx.fillStyle = this.colors.text;
-      this.ctx.font = '20px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(`${currentDate.toDateString()} ${currentDate.getHours()}:00`, centerX, centerY);
-    } else {
-      console.error('Invalid currentSegment in drawHourView:', currentSegment);
-    }
-
-    // Display events for this hour (implementation needed)
-    // this.calendar.displayHourEvents(this.currentSegment.hour);
   }
 
-  displayDayEvents(date) {
-    console.log('Displaying events for date:', date);
-    this.eventManager.getEventsForDate(date).then(events => {
-      console.log('Events for date:', events);
-      const centerX = this.canvas.width / 2;
-      const centerY = this.canvas.height / 2;
-      const outerRadius = Math.min(centerX, centerY) - 10;
-      const innerRadius = outerRadius * this.innerRadiusRatio;
+  setHoveredSegment(segment) {
+    this.hoveredSegment = segment;
+    this.updateHoveredSegment();
+  }
 
-      events.forEach(event => {
-        const startHour = event.start.getHours() + event.start.getMinutes() / 60;
-        const endHour = event.end.getHours() + event.end.getMinutes() / 60;
+  updateHoveredSegment() {
+    // TODO: Implement logic to update only the hovered segment
+    // This will be more efficient than redrawing the entire calendar
+    // For now, we'll just redraw the current view as a temporary solution
+    this.drawCurrentView(this.calendarGroup, this.currentSegment);
+  }
 
-        const startAngle = (startHour / 24) * 2 * Math.PI - Math.PI / 2;
-        const endAngle = (endHour / 24) * 2 * Math.PI - Math.PI / 2;
+  setCurrentView(view, segment) {
+    this.currentView = view;
+    this.currentSegment = segment;
+    this.currentYear = segment.year;
+  }
 
-        // Draw event arc
-        this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, (outerRadius + innerRadius) / 2, startAngle, endAngle);
-        this.ctx.lineWidth = outerRadius - innerRadius;
-        this.ctx.strokeStyle = this.colors.event;
-        this.ctx.stroke();
+drawCurrentView() {
+  // Clear previous content
+  while (this.calendarGroup.firstChild) {
+    this.calendarGroup.removeChild(this.calendarGroup.firstChild);
+  }
 
-        // Draw event description
-        const midAngle = (startAngle + endAngle) / 2;
-        const textRadius = (outerRadius + innerRadius) / 2;
-        const textX = centerX + textRadius * Math.cos(midAngle);
-        const textY = centerY + textRadius * Math.sin(midAngle);
+  const svgRect = this.svg.getBoundingClientRect();
+  const centerX = svgRect.width / 2;
+  const centerY = svgRect.height / 2;
+  const outerRadius = Math.min(centerX, centerY) - 10;
+  const innerRadius = outerRadius * this.innerRadiusRatio;
 
-        this.ctx.save();
-        this.ctx.translate(textX, textY);
-        this.ctx.rotate(midAngle + Math.PI / 2);
-        this.ctx.fillStyle = this.colors.text;
-        this.ctx.font = '12px Arial';
-        this.ctx.fillText(event.description, 0, 0);
-        this.ctx.restore();
-      });
-    });
+  switch (this.currentView) {
+    case 'year':
+      this.drawYearView(centerX, centerY, outerRadius, innerRadius);
+      break;
+    case 'month':
+      this.drawMonthView(this.currentSegment, centerX, centerY, outerRadius, innerRadius);
+      break;
+    case 'week':
+      this.drawWeekView(this.currentSegment, centerX, centerY, outerRadius, innerRadius);
+      break;
+    case 'day':
+      this.drawDayView(this.currentSegment, centerX, centerY, outerRadius, innerRadius);
+      break;
+    case 'hour':
+      this.drawHourView(this.currentSegment, centerX, centerY, outerRadius, innerRadius);
+      break;
+  }
+}
+
+  formatDate(date) {
+    return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+  }
+
+  getMonthName(month) {
+    return this.monthNames[month];
+  }
+
+  getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
   }
 
 }

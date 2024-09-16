@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZInfinity Calendar</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ical.js/1.4.0/ical.min.js"></script>
+    <style>
+        #calendarCanvas {
+            border: none;
+        }
+        #importExportButtons {
+            position: absolute;
+            top: 55%; /* Move down slightly */
+            left: 37%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap; /* Allow wrapping for small screens */
+            justify-content: center; /* Center the buttons */
+            width: 100%; /* Full width to ensure center alignment */
+        }
+        .calendar-button {
+            background: none;
+            border: 1px solid black;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin: 5px; /* Add some margin around buttons */
+        }
+    </style>
+</head>
+<body>
+    <div style="position: relative;">
+        <canvas id="calendarCanvas" width="800" height="800"></canvas>
+        <div id="importExportButtons">
+            <button id="importButton" class="calendar-button">Import</button>
+            <button id="exportButton" class="calendar-button">Export</button>
+            <button id="clearButton" class="calendar-button">Clear DB</button>
+        </div>
+    </div>
+    <input type="file" id="fileInput" style="display: none;">
+
+    <!-- Load scripts in order -->
+    <script src="Event.js"></script>
+    <script src="EventManager.js"></script>
+    <script src="CalendarRenderer.js"></script>
+    <script src="ZInfinityCalendar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const calendar = new ZInfinityCalendar('calendarCanvas', 2024);
+            calendar.drawCurrentView();
+
+            // Event listeners
+            document.getElementById('calendarCanvas').addEventListener('click', (event) => {
+                const rect = event.target.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                calendar.handleClick(x, y);
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    calendar.zoomOut();
+                } else {
+                    calendar.handleKeyDown(event);
+                }
+            });
+
+            // Import/Export buttons
+            document.getElementById('importButton').addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+
+            document.getElementById('fileInput').addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const data = JSON.parse(e.target.result);
+                        calendar.importData(data);
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+            document.getElementById('exportButton').addEventListener('click', () => {
+                calendar.exportData();
+            });
+
+            document.getElementById('clearButton').addEventListener('click', () => {
+                calendar.clearDatabase();
+            });
+        });
+    </script>
+</body>
+</html>

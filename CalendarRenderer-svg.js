@@ -108,6 +108,7 @@ class CalendarRenderer {
     }
 
     const startDate = this.getStartOfWeek(this.currentYear, currentSegment.week);
+    const selectedDayInWeek = currentSegment.day || 0; // Default to Sunday if not specified
 
     this.drawSegments(7, (index, startAngle, endAngle) => {
       this.drawWeekDaySegment(index, startAngle, endAngle, startDate, selectedDayInWeek);

@@ -108,10 +108,9 @@ class CalendarRenderer {
     }
 
     const startDate = this.getStartOfWeek(this.currentYear, currentSegment.week);
-    const selectedDayInWeek = currentSegment.day || 0; // Default to Sunday if not specified
 
     this.drawSegments(7, (index, startAngle, endAngle) => {
-      this.drawWeekDaySegment(index, startAngle, endAngle, startDate, selectedDayInWeek, centerX, centerY, outerRadius, innerRadius);
+      this.drawWeekDaySegment(index, startAngle, endAngle, startDate, centerX, centerY, outerRadius, innerRadius);
     });
 
     // Add week range in the center
@@ -296,10 +295,9 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(dayText);
   }
 
-  drawWeekDaySegment(index, startAngle, endAngle, startDate, selectedDayInWeek, centerX, centerY, outerRadius, innerRadius) {
+  drawWeekDaySegment(index, startAngle, endAngle, startDate, centerX, centerY, outerRadius, innerRadius) {
     const path = this.createArcPath(centerX, centerY, outerRadius, innerRadius, startAngle, endAngle);
-    path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : 
-                             (index === selectedDayInWeek ? this.colors.highlight : this.colors.segment));
+    path.setAttribute("fill", index === this.hoveredSegment ? this.colors.highlight : this.colors.segment);
     path.setAttribute("stroke", this.colors.border);
     path.setAttribute("data-segment", index);
     this.calendarGroup.appendChild(path);

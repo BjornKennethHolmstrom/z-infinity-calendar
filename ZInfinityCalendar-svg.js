@@ -49,8 +49,9 @@ class ZInfinityCalendar {
     this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     this.svg.setAttribute("width", "100%");
     this.svg.setAttribute("height", "100%");
-    this.svg.setAttribute("viewBox", "800 -32 1000 1000");
+    this.svg.setAttribute("viewBox", "0 0 1000 1000");
     this.container.appendChild(this.svg);
+
 
     // Create a group for the entire calendar
     this.calendarGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -61,24 +62,16 @@ class ZInfinityCalendar {
     this.panY = 0;
   }
 
-  initEventListeners() {
-    this.svg.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
-    document.addEventListener('keydown', this.handleKeyDown.bind(this));
-    this.svg.addEventListener('mousedown', this.handleMouseDown.bind(this));
-    this.svg.addEventListener('mousemove', this.handleMouseMove.bind(this));
-    this.svg.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
-    this.svg.addEventListener('mouseup', this.handleMouseUp.bind(this));
-    this.svg.addEventListener('touchstart', this.handleTouchStart.bind(this));
-    this.svg.addEventListener('touchmove', this.handleTouchMove.bind(this));
-    this.svg.addEventListener('touchend', this.handleTouchEnd.bind(this));
-    this.svg.addEventListener('click', this.handleClick.bind(this));
-  }
-
-
-  updateTransform() {
-    this.calendarGroup.setAttribute('transform', `translate(${this.panX},${this.panY}) scale(${this.zoomLevel})`);
-  }
-   
+initEventListeners() {
+  this.svg.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
+  document.addEventListener('keydown', this.handleKeyDown.bind(this));
+  this.svg.addEventListener('mousemove', this.handleMouseMove.bind(this));
+  this.svg.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+  this.svg.addEventListener('click', this.handleClick.bind(this));
+  this.svg.addEventListener('touchstart', this.handleTouchStart.bind(this));
+  this.svg.addEventListener('touchmove', this.handleTouchMove.bind(this));
+  this.svg.addEventListener('touchend', this.handleTouchEnd.bind(this));
+}
 
   drawCurrentView() {
     while (this.calendarGroup.firstChild) {
@@ -113,12 +106,6 @@ class ZInfinityCalendar {
     }
   }
 
-  handleMouseDown(event) {
-    this.isDragging = true;
-    this.lastMouseX = event.clientX;
-    this.lastMouseY = event.clientY;
-  }
-
   handleMouseMove(event) {
     const rect = this.svg.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -128,16 +115,6 @@ class ZInfinityCalendar {
       this.hoveredSegment = newHoveredSegment;
       this.renderer.setHoveredSegment(this.hoveredSegment);
     }
-
-    if (this.isDragging) {
-      const dx = event.clientX - this.lastMouseX;
-      const dy = event.clientY - this.lastMouseY;
-      this.panX += dx / this.zoomLevel;
-      this.panY += dy / this.zoomLevel;
-      this.updateTransform();
-      this.lastMouseX = event.clientX;
-      this.lastMouseY = event.clientY;
-    }
   }
 
   handleMouseLeave() {
@@ -145,21 +122,14 @@ class ZInfinityCalendar {
     this.renderer.setHoveredSegment(null);
   }
 
-  handleMouseUp(event) {
-    this.isDragging = false;
-  }
-
   handleClick(event) {
-    if (!this.hasDragged) {
-      const rect = this.svg.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      const segment = this.getSegmentFromPosition(x, y);
-      if (segment !== null) {
-        this.zoomInToPosition(x, y);
-      }
+    const rect = this.svg.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const segment = this.getSegmentFromPosition(x, y);
+    if (segment !== null) {
+      this.zoomInToPosition(x, y);
     }
-    this.hasDragged = false;
   }
 
   handleTouchStart(event) {
@@ -453,13 +423,20 @@ class ZInfinityCalendar {
   }
 
   getSegmentFromPosition(x, y) {
-    const centerX = 500; // center of the SVG viewBox
-    const centerY = 500;
-    const outerRadius = 490;
+    const svgRect = this.svg.getBoundingClientRect();
+    const centerX = svgRect.width / 2;
+    const centerY = svgRect.height / 2;
+    const outerRadius = Math.min(centerX, centerY) - 10;
     const innerRadius = outerRadius * this.innerRadiusRatio;
 
-    const dx = x - centerX;
-    const dy = y - centerY;
+    // Transform mouse coordinates to SVG coordinate system
+    const svgPoint = this.svg.createSVGPoint();
+    svgPoint.x = x;
+    svgPoint.y = y;
+    const transformedPoint = svgPoint.matrixTransform(this.svg.getScreenCTM().inverse());
+
+    const dx = transformedPoint.x - centerX;
+    const dy = transformedPoint.y - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance <= outerRadius && distance >= innerRadius) {
@@ -498,21 +475,6 @@ class ZInfinityCalendar {
     const segment = this.getSegmentFromPosition(x, y);
     if (segment !== null) {
       this.zoomInTimeView(segment);
-      
-      // Calculate the new center point
-      const svgPoint = this.svg.createSVGPoint();
-      svgPoint.x = x;
-      svgPoint.y = y;
-      const transformedPoint = svgPoint.matrixTransform(this.calendarGroup.getCTM().inverse());
-      
-      // Animate the centering
-      const centerX = 500;
-      const centerY = 500;
-      const dx = centerX - transformedPoint.x;
-      const dy = centerY - transformedPoint.y;
-      
-      this.animateTransform(dx, dy);
-      
       this.drawCurrentView();
     }
   }

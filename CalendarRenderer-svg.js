@@ -14,11 +14,7 @@ class CalendarRenderer {
     this.monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   }
 
-  drawYearView() {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
+  drawYearView(centerX, centerY, outerRadius, innerRadius) {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
@@ -80,11 +76,7 @@ class CalendarRenderer {
     return path;
   }
 
-  drawMonthView(currentSegment) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
+  drawMonthView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
@@ -106,11 +98,7 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(monthYearText);
   }
 
-  drawWeekView(currentSegment, selectedDayInWeek) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
+  drawWeekView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
@@ -152,11 +140,7 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(weekNumberText);
   }
 
-  drawDayView(currentSegment) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
+  drawDayView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
@@ -192,6 +176,10 @@ class CalendarRenderer {
 
   displayDayEvents(date) {
     const events = this.eventManager.getEventsForDate(date);
+    if (!Array.isArray(events)) {
+      console.warn('No events found or invalid events data for date:', date);
+      return;
+    }
     const centerX = 500;
     const centerY = 500;
     const outerRadius = 490;
@@ -224,11 +212,7 @@ class CalendarRenderer {
     });
   }
 
-  drawHourView(currentSegment) {
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
+  drawHourView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
 
     this.drawBackground(centerX, centerY, outerRadius, innerRadius);
 
@@ -450,30 +434,36 @@ class CalendarRenderer {
     this.currentYear = segment.year;
   }
 
-  drawCurrentView() {
-    // Clear previous content
-    while (this.calendarGroup.firstChild) {
-      this.calendarGroup.removeChild(this.calendarGroup.firstChild);
-    }
-
-    switch (this.currentView) {
-      case 'year':
-        this.drawYearView();
-        break;
-      case 'month':
-        this.drawMonthView(this.currentSegment);
-        break;
-      case 'week':
-        this.drawWeekView(this.currentSegment);
-        break;
-      case 'day':
-        this.drawDayView(this.currentSegment);
-        break;
-      case 'hour':
-        this.drawHourView(this.currentSegment);
-        break;
-    }
+drawCurrentView() {
+  // Clear previous content
+  while (this.calendarGroup.firstChild) {
+    this.calendarGroup.removeChild(this.calendarGroup.firstChild);
   }
+
+  const svgRect = this.svg.getBoundingClientRect();
+  const centerX = svgRect.width / 2;
+  const centerY = svgRect.height / 2;
+  const outerRadius = Math.min(centerX, centerY) - 10;
+  const innerRadius = outerRadius * this.innerRadiusRatio;
+
+  switch (this.currentView) {
+    case 'year':
+      this.drawYearView(centerX, centerY, outerRadius, innerRadius);
+      break;
+    case 'month':
+      this.drawMonthView(this.currentSegment, centerX, centerY, outerRadius, innerRadius);
+      break;
+    case 'week':
+      this.drawWeekView(this.currentSegment, centerX, centerY, outerRadius, innerRadius);
+      break;
+    case 'day':
+      this.drawDayView(this.currentSegment, centerX, centerY, outerRadius, innerRadius);
+      break;
+    case 'hour':
+      this.drawHourView(this.currentSegment, centerX, centerY, outerRadius, innerRadius);
+      break;
+  }
+}
 
   formatDate(date) {
     return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;

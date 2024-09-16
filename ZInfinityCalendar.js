@@ -41,25 +41,25 @@ class ZInfinityCalendar {
       this.eventManager
     );
 
+    this.handleResize();
     this.drawCurrentView();
     this.currentSegment = { year: year };
   }
 
   initSVG() {
-    this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    this.svg.setAttribute("width", "100%");
-    this.svg.setAttribute("height", "100%");
-    this.svg.setAttribute("viewBox", "0 0 1000 1000");
-    this.container.appendChild(this.svg);
+      this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      this.svg.setAttribute("width", "100%");
+      this.svg.setAttribute("height", "100%");
+      this.svg.setAttribute("viewBox", "0 0 1000 1000");
+      this.svg.style.display = "block"; // Ensures no extra space at the bottom
+      this.container.appendChild(this.svg);
 
+      // Create a group for the entire calendar
+      this.calendarGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      this.svg.appendChild(this.calendarGroup);
 
-    // Create a group for the entire calendar
-    this.calendarGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    this.svg.appendChild(this.calendarGroup);
-
-    this.zoomLevel = 1;
-    this.panX = 0;
-    this.panY = 0;
+      // Add resize listener
+      window.addEventListener('resize', this.handleResize.bind(this));
   }
 
   initEventListeners() {
@@ -71,6 +71,14 @@ class ZInfinityCalendar {
     this.svg.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: true });
     this.svg.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
     this.svg.addEventListener('touchend', this.handleTouchEnd.bind(this));
+  }
+
+  handleResize() {
+      const containerRect = this.container.getBoundingClientRect();
+      const size = Math.min(containerRect.width, containerRect.height);
+      this.svg.style.width = `${size}px`;
+      this.svg.style.height = `${size}px`;
+      this.drawCurrentView(); // Redraw the calendar to fit the new size
   }
 
   drawCurrentView() {

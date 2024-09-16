@@ -342,7 +342,7 @@ class ZInfinityCalendar {
             this.currentSegment = {
               year: this.currentYear,
               month: weekStart.getMonth(),
-              week: this.getWeekNumber(weekStart) - 1, // Adjust to 0-based index
+              week: this.getWeekNumber(weekStart),
               date: weekStart
             };
           } else if (prevSegment.week !== undefined) {
@@ -527,6 +527,10 @@ class ZInfinityCalendar {
 
     this.updateTransform();
   }
+
+  animateTransform(dx, dy) {
+     // Do nothing for now
+  };
 
 /*  zoomIn(segment) {
     const currentViewIndex = this.zoomLevels.indexOf(this.currentView);

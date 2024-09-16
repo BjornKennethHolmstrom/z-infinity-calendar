@@ -473,7 +473,7 @@ class ZInfinityCalendar {
             weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Set to Sunday
             this.currentSegment = {
               month: weekStart.getMonth(),
-              week: this.getWeekNumber(weekStart) - 1, // Adjust to 0-based index
+              week: this.getWeekNumber(weekStart),
               date: weekStart
             };
           } else if (prevSegment.week !== undefined) {

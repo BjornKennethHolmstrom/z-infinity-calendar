@@ -74,11 +74,21 @@ class ZInfinityCalendar {
   }
 
   handleResize() {
-      const containerRect = this.container.getBoundingClientRect();
-      const size = Math.min(containerRect.width, containerRect.height);
-      this.svg.style.width = `${size}px`;
-      this.svg.style.height = `${size}px`;
-      this.drawCurrentView(); // Redraw the calendar to fit the new size
+    const containerRect = this.container.getBoundingClientRect();
+    const aspectRatio = 1; // Since the viewBox is 1000x1000
+    let width, height;
+    
+    if (containerRect.width / containerRect.height > aspectRatio) {
+      height = containerRect.height;
+      width = height * aspectRatio;
+    } else {
+      width = containerRect.width;
+      height = width / aspectRatio;
+    }
+    
+    this.svg.style.width = `${width}px`;
+    this.svg.style.height = `${height}px`;
+    this.drawCurrentView(); // Redraw the calendar to fit the new size
   }
 
   drawCurrentView() {

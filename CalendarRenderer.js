@@ -4,6 +4,8 @@ class CalendarRenderer {
     this.calendarGroup = calendarGroup;
     this.colors = colors;
     this.innerRadiusRatio = innerRadiusRatio;
+    this.outerLabelOffset = 20;
+    this.viewBoxPadding = 50;
     this.currentYear = currentYear;
     this.currentSegment = { year: this.currentYear };
     this.getMonthName = getMonthName;
@@ -263,10 +265,11 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(path);
 
     // Add month name label
-    const labelRadius = (outerRadius + innerRadius) / 2;
     const labelAngle = (startAngle + endAngle) / 2;
+    const labelRadius = outerRadius + this.outerLabelOffset;
     const labelX = centerX + labelRadius * Math.cos(labelAngle);
     const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
 
     const monthText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     monthText.setAttribute("x", labelX);
@@ -287,10 +290,11 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(path);
 
     // Add day number label
-    const labelRadius = (outerRadius + innerRadius) / 2;
     const labelAngle = (startAngle + endAngle) / 2;
+    const labelRadius = outerRadius + this.outerLabelOffset;
     const labelX = centerX + labelRadius * Math.cos(labelAngle);
     const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
 
     const dayText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     dayText.setAttribute("x", labelX);
@@ -311,8 +315,8 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(path);
 
     // Add day name and date
-    const labelRadius = (outerRadius + innerRadius) / 2;
     const labelAngle = (startAngle + endAngle) / 2;
+    const labelRadius = outerRadius + this.outerLabelOffset;
     const labelX = centerX + labelRadius * Math.cos(labelAngle);
     const labelY = centerY + labelRadius * Math.sin(labelAngle);
 
@@ -348,8 +352,8 @@ class CalendarRenderer {
     this.calendarGroup.appendChild(path);
 
     // Add hour label
-    const labelRadius = (outerRadius + innerRadius) / 2;
     const labelAngle = (startAngle + endAngle) / 2;
+    const labelRadius = outerRadius + this.outerLabelOffset;
     const labelX = centerX + labelRadius * Math.cos(labelAngle);
     const labelY = centerY + labelRadius * Math.sin(labelAngle);
 
@@ -373,8 +377,8 @@ class CalendarRenderer {
 
     // Add minute label for every 5 minutes
     if (index % 5 === 0) {
-      const labelRadius = (outerRadius + innerRadius) / 2;
       const labelAngle = (startAngle + endAngle) / 2;
+      const labelRadius = outerRadius + this.outerLabelOffset;
       const labelX = centerX + labelRadius * Math.cos(labelAngle);
       const labelY = centerY + labelRadius * Math.sin(labelAngle);
 

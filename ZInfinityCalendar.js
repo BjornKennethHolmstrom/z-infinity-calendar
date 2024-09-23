@@ -17,6 +17,7 @@ class ZInfinityCalendar {
       highlight: '#e0e0e0'
     };
     this.innerRadiusRatio = 0.6;
+    this.viewBoxPadding = 50;
     this.selectedDayInWeek = null;
     this.selectedDayInMonth = null;
 
@@ -48,14 +49,16 @@ class ZInfinityCalendar {
 
   initSVG() {
       this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const viewBoxSize = 1000 + (this.viewBoxPadding * 2);
       this.svg.setAttribute("width", "100%");
       this.svg.setAttribute("height", "100%");
-      this.svg.setAttribute("viewBox", "0 0 1000 1000");
+      this.svg.setAttribute("viewBox", `0 0 ${viewBoxSize} ${viewBoxSize}`);
       this.svg.style.display = "block"; // Ensures no extra space at the bottom
       this.container.appendChild(this.svg);
 
       // Create a group for the entire calendar
       this.calendarGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      this.calendarGroup.setAttribute("transform", `translate(${this.viewBoxPadding}, ${this.viewBoxPadding})`);
       this.svg.appendChild(this.calendarGroup);
 
       // Add resize listener

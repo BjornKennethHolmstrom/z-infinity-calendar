@@ -10,10 +10,17 @@ class CalendarRenderer {
     this.currentSegment = { year: this.currentYear };
     this.getMonthName = getMonthName;
     this.getStartOfWeek = getStartOfWeek;
-    this.eventManager = eventManager;
     this.hoveredSegment = null;
     this.dayNames = ['Sun','Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     this.monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    this.eventManager = eventManager;
+    this.eventManager = eventManager;
+    this.dragStartHandler = this.dragStartHandler.bind(this);
+    this.dragHandler = this.dragHandler.bind(this);
+    this.dragEndHandler = this.dragEndHandler.bind(this);
+    this.isDragging = false;
+    this.dragStartPosition = null;
+    this.dragStartYOffset = 100;
   }
 
   drawYearView(centerX, centerY, outerRadius, innerRadius) {
@@ -180,46 +187,8 @@ class CalendarRenderer {
       this.calendarGroup.appendChild(fullDateText);
     }
 
-    // Call method to display events for this day
-    this.displayDayEvents(currentSegment.date);
-  }
-
-  displayDayEvents(date) {
-    const events = this.eventManager.getEventsForDate(date);
-    if (!Array.isArray(events)) {
-      //console.warn('No events found or invalid events data for date:', date);
-      return;
-    }
-    const centerX = 500;
-    const centerY = 500;
-    const outerRadius = 490;
-    const innerRadius = outerRadius * this.innerRadiusRatio;
-
-    events.forEach((event, index) => {
-      const startAngle = (event.startDate.getHours() / 24) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = (event.endDate.getHours() / 24) * 2 * Math.PI - Math.PI / 2;
-      const eventRadius = innerRadius + (outerRadius - innerRadius) * 0.8; // Place events near the outer edge
-
-      const path = this.createArcPath(centerX, centerY, eventRadius, eventRadius - 10, startAngle, endAngle);
-      path.setAttribute("fill", this.colors.event);
-      path.setAttribute("stroke", "none");
-      this.calendarGroup.appendChild(path);
-
-      // Add event title
-      const labelAngle = (startAngle + endAngle) / 2;
-      const labelX = centerX + eventRadius * Math.cos(labelAngle);
-      const labelY = centerY + eventRadius * Math.sin(labelAngle);
-
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("x", labelX);
-      text.setAttribute("y", labelY);
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("dominant-baseline", "middle");
-      text.setAttribute("fill", "#ffffff");
-      text.setAttribute("font-size", "20");
-      text.textContent = event.title;
-      this.calendarGroup.appendChild(text);
-    });
+    this.drawAddEventButton(centerX, centerY, innerRadius);
+    this.displayDayEvents(currentSegment.date, centerX, centerY, outerRadius, innerRadius);
   }
 
   drawHourView(currentSegment, centerX, centerY, outerRadius, innerRadius) {
@@ -280,6 +249,8 @@ class CalendarRenderer {
     monthText.setAttribute("font-size", "14");
     monthText.textContent = this.monthNames[index];
     this.calendarGroup.appendChild(monthText);
+ 
+    return path;
   }
 
   drawDaySegment(index, startAngle, endAngle, month, centerX, centerY, outerRadius, innerRadius) {
@@ -305,6 +276,8 @@ class CalendarRenderer {
     dayText.setAttribute("font-size", "12");
     dayText.textContent = (index + 1).toString();
     this.calendarGroup.appendChild(dayText);
+
+    return path;
   }
 
   drawWeekDaySegment(index, startAngle, endAngle, startDate, centerX, centerY, outerRadius, innerRadius) {
@@ -342,6 +315,8 @@ class CalendarRenderer {
     dateText.setAttribute("font-size", "10");
     dateText.textContent = currentDate.getDate().toString();
     this.calendarGroup.appendChild(dateText);
+
+    return path;
   }
 
   drawHourSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius) {
@@ -366,6 +341,8 @@ class CalendarRenderer {
     hourText.setAttribute("font-size", "12");
     hourText.textContent = `${index}:00`;
     this.calendarGroup.appendChild(hourText);
+
+    return path;
   }
 
   drawMinuteSegment(index, startAngle, endAngle, centerX, centerY, outerRadius, innerRadius) {
@@ -392,6 +369,8 @@ class CalendarRenderer {
       minuteText.textContent = index.toString();
       this.calendarGroup.appendChild(minuteText);
     }
+
+    return path;
   }
 
   drawSegments(totalSegments, drawSegmentFunc) {
@@ -399,7 +378,17 @@ class CalendarRenderer {
     for (let i = 0; i < totalSegments; i++) {
       const startAngle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2 + angleOffset;
       const endAngle = ((i + 1) / totalSegments) * 2 * Math.PI - Math.PI / 2 + angleOffset;
-      drawSegmentFunc(i, startAngle, endAngle);
+      const segment = drawSegmentFunc(i, startAngle, endAngle);
+      
+      // Add click event listener to the segment
+      if (segment) {
+        segment.addEventListener("click", (e) => {
+          // Only zoom in if the click wasn't on an event
+          if (!e.target.getAttribute("data-event-id")) {
+            this.zoomInTimeView(i);
+          }
+        });
+      }
     }
   }
 
@@ -452,8 +441,381 @@ drawCurrentView() {
   }
 }
 
+  drawAddEventButton(centerX, centerY, innerRadius) {
+    const button = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    button.setAttribute("class", "add-event-button");
+    button.setAttribute("cursor", "pointer");
+
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", centerX);
+    circle.setAttribute("cy", centerY+this.dragStartYOffset);
+    circle.setAttribute("r", innerRadius * 0.2);
+    circle.setAttribute("fill", this.colors.event);
+
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", centerX);
+    text.setAttribute("y", centerY+this.dragStartYOffset);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "middle");
+    text.setAttribute("fill", "white");
+    text.setAttribute("font-size", "14");
+    text.setAttribute("pointer-events", "none"); // Prevent text from capturing events
+    text.textContent = "Drag to add event";
+
+    button.appendChild(circle);
+    button.appendChild(text);
+    this.calendarGroup.appendChild(button);
+
+    button.addEventListener("mousedown", this.dragStartHandler);
+  }
+
+  dragStartHandler(event) {
+    event.preventDefault(); // Prevent text selection
+    this.isDragging = true;
+    const svgRect = this.svg.getBoundingClientRect();
+    const scale = svgRect.width / 1000; // Assuming 1000 is the SVG viewBox width
+    this.dragStartPosition = {
+      x: (event.clientX - svgRect.left) / scale,
+      y: (event.clientY - svgRect.top) / scale
+    };
+    document.addEventListener("mousemove", this.dragHandler);
+    document.addEventListener("mouseup", this.dragEndHandler);
+  }
+
+  dragHandler(event) {
+    if (!this.isDragging) return;
+    const svgRect = this.svg.getBoundingClientRect();
+    const scale = svgRect.width / 1000;
+    const currentX = (event.clientX - svgRect.left) / scale;
+    const currentY = (event.clientY - svgRect.top) / scale;
+
+    // Visual feedback: draw a line from start to current position
+    if (this.dragLine) {
+      this.dragLine.setAttribute("x2", currentX);
+      this.dragLine.setAttribute("y2", currentY);
+    } else {
+      this.dragLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      this.dragLine.setAttribute("x1", this.dragStartPosition.x);
+      this.dragLine.setAttribute("y1", this.dragStartPosition.y);
+      this.dragLine.setAttribute("x2", currentX);
+      this.dragLine.setAttribute("y2", currentY);
+      this.dragLine.setAttribute("stroke", this.colors.event);
+      this.dragLine.setAttribute("stroke-width", "2");
+      this.calendarGroup.appendChild(this.dragLine);
+    }
+  }
+
+  dragEndHandler(event) {
+    if (!this.isDragging) return;
+    this.isDragging = false;
+    document.removeEventListener("mousemove", this.dragHandler);
+    document.removeEventListener("mouseup", this.dragEndHandler);
+
+    if (this.dragLine && this.dragLine.parentNode) {
+      this.calendarGroup.removeChild(this.dragLine);
+    }
+    this.dragLine = null;
+
+    const svgRect = this.svg.getBoundingClientRect();
+    const scale = svgRect.width / 1000;
+    const endX = (event.clientX - svgRect.left) / scale;
+    const endY = (event.clientY - svgRect.top) / scale;
+    const endSegment = this.getSegmentFromPosition(endX, endY);
+    if (endSegment !== null) {
+      this.createNewEvent(endSegment);
+    }
+  }
+
+  createNewEvent(startSegment) {
+    const startDate = new Date(this.currentSegment.date);
+    startDate.setHours(startSegment);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour duration by default
+
+    const newEvent = {
+      id: Date.now(), // Simple unique ID
+      title: "New Event",
+      start: startDate,
+      end: endDate
+    };
+
+    this.eventManager.addEvent(newEvent).then(() => {
+      this.drawCurrentView(); // Redraw to show the new event
+    });
+  }
+
+  displayDayEvents(date, centerX, centerY, outerRadius, innerRadius) {
+    this.eventManager.getEventsForDate(date).then(events => {
+      events.forEach(event => {
+        this.drawEventArc(event, centerX, centerY, outerRadius, innerRadius);
+      });
+    });
+  }
+
+  drawEventArc(event, centerX, centerY, outerRadius, innerRadius) {
+    const startAngle = this.timeToAngle(event.start);
+    const endAngle = this.timeToAngle(event.end);
+    const eventRadius = (outerRadius + innerRadius) / 2;
+    const arcWidth = (outerRadius - innerRadius) * 0.8;
+
+    const path = this.createArcPath(centerX, centerY, eventRadius + arcWidth / 2, eventRadius - arcWidth / 2, startAngle, endAngle);
+    path.setAttribute("fill", this.colors.event);
+    path.setAttribute("stroke", "none");
+    path.setAttribute("data-event-id", event.id);
+    path.setAttribute("cursor", "pointer");
+    
+    // Add click event listener
+    path.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent the click from reaching the underlying segment
+      this.openEventEditDialog(event);
+    });
+    
+    this.calendarGroup.appendChild(path);
+
+    // Add event title
+    const labelAngle = (startAngle + endAngle) / 2;
+    const labelRadius = eventRadius;
+    const labelX = centerX + labelRadius * Math.cos(labelAngle);
+    const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+    const text = this.createTextElement(labelX, labelY, event.title, "12", (labelAngle * 180 / Math.PI) + 90);
+    
+    // Add click event listener to the text as well
+    text.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent the click from reaching the underlying segment
+      this.openEventEditDialog(event);
+    });
+    
+    this.calendarGroup.appendChild(text);
+  }
+
+  timeToAngle(date) {
+    const minutes = date.getHours() * 60 + date.getMinutes();
+    return (minutes / 1440) * 2 * Math.PI - Math.PI / 2;
+  }
+
+  getSegmentFromPosition(x, y) {
+    const svgRect = this.svg.getBoundingClientRect();
+    const viewBoxWidth = 1000 + (this.viewBoxPadding * 2); // Adjusted for padding
+    const viewBoxHeight = 1000 + (this.viewBoxPadding * 2);
+    const scale = svgRect.width / viewBoxWidth;
+
+    // Convert screen coordinates to SVG viewBox coordinates
+    const svgX = (x / scale) - this.viewBoxPadding;
+    const svgY = (y / scale) - this.viewBoxPadding;
+
+    const centerX = 500; // Center of the original 1000x1000 viewBox
+    const centerY = 500;
+    const outerRadius = Math.min(centerX, centerY) - 10;
+    const innerRadius = outerRadius * this.innerRadiusRatio;
+
+    const dx = svgX - centerX;
+    const dy = svgY - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance <= outerRadius && distance >= innerRadius) {
+      let angle = Math.atan2(dy, dx);
+      if (angle < 0) angle += 2 * Math.PI;
+      angle = (angle + Math.PI / 2) % (2 * Math.PI);
+
+      let totalSegments;
+      let adjustedAngle = angle;
+
+      switch (this.currentView) {
+        case 'year':
+          totalSegments = 12;
+          break;
+        case 'month':
+          totalSegments = new Date(this.currentSegment.year, this.currentSegment.month + 1, 0).getDate();
+          break;
+        case 'week':
+          totalSegments = 7;
+          // Adjust the angle for the week view to match the drawing offset
+          adjustedAngle = (angle - Math.PI / 7 + 2 * Math.PI) % (2 * Math.PI);
+          break;
+        case 'day':
+          totalSegments = 24;
+          break;
+        case 'hour':
+          totalSegments = 60;
+          break;
+        default:
+          return null;
+      }
+
+      const segmentIndex = Math.floor((adjustedAngle / (2 * Math.PI)) * totalSegments);
+      return this.getSegmentInfo(segmentIndex);
+    }
+
+    return null;
+  }
+
+  getSegmentInfo(segmentIndex) {
+    switch (this.currentView) {
+      case 'year':
+        return { type: 'month', index: segmentIndex };
+      case 'month':
+        return { type: 'day', index: segmentIndex };
+      case 'week':
+        return { type: 'weekday', index: segmentIndex };
+      case 'day':
+        return { type: 'hour', index: segmentIndex };
+      case 'hour':
+        return { type: 'minute', index: segmentIndex };
+      default:
+        return null;
+    }
+  }
+
+  createNewEvent(segment) {
+    if (!segment) return;
+
+    let startDate = new Date(this.currentSegment.date);
+    let endDate = new Date(startDate);
+
+    switch (segment.type) {
+      case 'month':
+        startDate.setMonth(segment.index);
+        endDate.setMonth(segment.index + 1);
+        break;
+      case 'day':
+        startDate.setDate(segment.index + 1);
+        endDate.setDate(segment.index + 1);
+        endDate.setHours(startDate.getHours() + 1);
+        break;
+      case 'weekday':
+        const weekStart = this.getStartOfWeek(this.currentSegment.year, this.currentSegment.week);
+        startDate = new Date(weekStart);
+        startDate.setDate(weekStart.getDate() + segment.index);
+        endDate = new Date(startDate);
+        endDate.setHours(startDate.getHours() + 1);
+        break;
+      case 'hour':
+        startDate.setHours(segment.index);
+        endDate.setHours(segment.index + 1);
+        break;
+      case 'minute':
+        startDate.setHours(startDate.getHours(), segment.index);
+        endDate.setHours(startDate.getHours(), segment.index + 15); // 15-minute event duration
+        break;
+    }
+
+    const newEvent = {
+      id: Date.now(),
+      title: "New Event",
+      start: startDate,
+      end: endDate
+    };
+
+    this.eventManager.addEvent(newEvent).then(() => {
+      this.drawCurrentView();
+    });
+  }
+
+  openEventEditDialog(event) {
+    // Implement event editing dialog
+    console.log("Edit event:", event);
+    // You can create a custom dialog or use the browser's prompt for simplicity
+    const newTitle = prompt("Edit event title:", event.title);
+    if (newTitle !== null) {
+      event.title = newTitle;
+      this.eventManager.updateEvent(event.id, event).then(() => {
+        this.drawCurrentView(); // Redraw to show the updated event
+      });
+    }
+  }
+
+  createTextElement(x, y, content, fontSize, rotate = 0) {
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", x);
+    text.setAttribute("y", y);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "middle");
+    text.setAttribute("fill", this.colors.text);
+    text.setAttribute("font-size", fontSize);
+    
+    if (rotate !== 0) {
+      text.setAttribute("transform", `rotate(${rotate}, ${x}, ${y})`);
+    }
+
+    const lines = this.wrapText(content, 10);
+    lines.forEach((line, index) => {
+      const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+      tspan.setAttribute("x", x);
+      tspan.setAttribute("dy", index === 0 ? "0" : "1.2em");
+      tspan.textContent = line;
+      text.appendChild(tspan);
+    });
+
+    return text;
+  }
+
+  wrapText(text, maxLength) {
+    if (text.length <= maxLength) return [text];
+    const words = text.split(' ');
+    let lines = [];
+    let currentLine = words[0];
+
+    for (let i = 1; i < words.length; i++) {
+      if ((currentLine + ' ' + words[i]).length <= maxLength) {
+        currentLine += ' ' + words[i];
+      } else {
+        lines.push(currentLine);
+        currentLine = words[i];
+      }
+    }
+    lines.push(currentLine);
+    return lines;
+  }
+
+  openEventEditDialog(event) {
+    const dialog = document.getElementById('event-edit-dialog');
+    const form = document.getElementById('event-edit-form');
+    const titleInput = document.getElementById('event-title');
+    const startInput = document.getElementById('event-start');
+    const endInput = document.getElementById('event-end');
+    const deleteButton = document.getElementById('delete-event');
+    const closeButton = document.getElementById('close-dialog');
+
+    titleInput.value = event.title;
+    startInput.value = this.formatDateTimeLocal(event.start);
+    endInput.value = this.formatDateTimeLocal(event.end);
+
+    dialog.style.display = 'block';
+
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const updatedEvent = {
+        ...event,
+        title: titleInput.value,
+        start: new Date(startInput.value),
+        end: new Date(endInput.value)
+      };
+      this.eventManager.updateEvent(event.id, updatedEvent).then(() => {
+        dialog.style.display = 'none';
+        this.drawCurrentView();
+      });
+    };
+
+    deleteButton.onclick = () => {
+      if (confirm('Are you sure you want to delete this event?')) {
+        this.eventManager.removeEvent(event.id).then(() => {
+          dialog.style.display = 'none';
+          this.drawCurrentView();
+        });
+      }
+    };
+
+    closeButton.onclick = () => {
+      dialog.style.display = 'none';
+    };
+  }
+
   formatDate(date) {
     return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+  }
+
+  formatDateTimeLocal(date) {
+    return date.toISOString().slice(0, 16);
   }
 
   getMonthName(month) {

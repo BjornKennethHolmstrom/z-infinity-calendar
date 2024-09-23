@@ -5,6 +5,24 @@ All notable changes to the Z∞ Calendar project will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2024-09-23
+
+### Added
+- Event creation functionality using drag-and-drop from center
+- Event display as arcs on the day view
+- Sophisticated event editing dialog with start/end time adjustment
+- Event deletion capability
+- Implemented getSegmentFromPosition method for all views
+
+### Changed
+- Moved segment labels to outside the outer circle for better visibility
+- Improved handling of text wrapping and positioning in SVG
+
+### Fixed
+- Resolved issues with dragging events to segments
+- Fixed errors when hovering over segments
+- Prevented unintended zoom-in when clicking on events
+
 ## [0.2.0] - 2024-09-16
 
 ### Added
